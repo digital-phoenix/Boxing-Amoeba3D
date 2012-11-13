@@ -1,6 +1,6 @@
 # include "AI.h"
 
-AI::AI(double px, double py, double radius,double scale, Amoeba* player, bool normal)
+AI::AI(double px, double py,double pz, double radius,double scale, Amoeba* player, bool normal)
 {
 	velX = 0;
 	velY = 0;
@@ -8,6 +8,7 @@ AI::AI(double px, double py, double radius,double scale, Amoeba* player, bool no
 	this->player = player;
 	this->px = px;
 	this->py = py;
+	this->pz = pz;
 	this->radius = radius*scale;
 	this->normal = normal;
 	this->scale = scale;
@@ -52,13 +53,13 @@ AI::AI(double px, double py, double radius,double scale, Amoeba* player, bool no
 	isAttack = false;
 	isWall = false;
 
-	balls.addMetaball(new Metaball2D(this->px,this->py,this->radius));//body of AI
+	balls.addMetaball(new Metaball3D(this->px,this->py,this->pz,this->radius));//body of AI
 }
 
 void AI::update()
 {
 
-	double distance = sqrt(  ((py - player->getPy()) * (py - player->getPy()) ) +  ((px - player->getPx() ) * (px - player->getPx() ))) ; 
+	double distance = sqrt(((py - player->getPy()) * (py - player->getPy()) ) +  ((px - player->getPx() ) * (px - player->getPx()))) ; 
 
 	if(distance < radius + player->getRadius() + 50)//Approximate arm distance needed to attack 
 	{
@@ -189,9 +190,9 @@ void AI::extendDefendArm()
 			defendWaitTimer = time(NULL) + 7;
 			defendArm = new Metaball2DGroup(0.0, 1.0, 0.0);
 
-			defendArm->addMetaball(new Metaball2D(px + cos(angle)* defendSpacing1, py + sin(angle) *defendSpacing1, scale*3.0));
-			defendArm->addMetaball(new Metaball2D(px + cos(angle)* defendSpacing2, py + sin(angle) *defendSpacing2,scale*3.0));
-			defendArm->addMetaball(new Metaball2D(px + cos(angle)* defendSpacing3, py + sin(angle)*defendSpacing3,scale*12.0));
+			defendArm->addMetaball(new Metaball3D(px + cos(angle)* defendSpacing1, py + sin(angle) *defendSpacing1, scale*3.0));
+			defendArm->addMetaball(new Metaball3D(px + cos(angle)* defendSpacing2, py + sin(angle) *defendSpacing2,scale*3.0));
+			defendArm->addMetaball(new Metaball3D(px + cos(angle)* defendSpacing3, py + sin(angle)*defendSpacing3,scale*12.0));
 			balls.addSubgroup(defendArm);
 
 			defendFistPx = px + cos(angle)*defendSpacing3;

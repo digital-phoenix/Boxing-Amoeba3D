@@ -2,13 +2,14 @@
 
 Amoeba::Amoeba():balls(0.0,0.0,1.0){}
 
-Amoeba::Amoeba(double px, double py, double radius, double scale, bool normal) : balls(0.0,1.0,1.0)
+Amoeba::Amoeba(double px, double py, double pz, double radius, double scale, bool normal) : balls(0.0,1.0,1.0)
 {
 	velX = 0;
 	velY = 0;
 
 	this->px = px;
 	this->py = py;
+	this->pz = pz;
 	this->radius = radius;
 	this->normal = normal;
 	this->scale = scale;
@@ -70,7 +71,7 @@ Amoeba::Amoeba(double px, double py, double radius, double scale, bool normal) :
 	defendFistPy = 0;
 	defendFistRadius = 0;
 
-	balls.addMetaball(new Metaball2D(px,py,radius));//body of amoeba
+	balls.addMetaball(new Metaball3D(px,py,pz, radius));//body of amoeba
 }
 
 bool Amoeba::AmoebaCollision( Amoeba* other){
