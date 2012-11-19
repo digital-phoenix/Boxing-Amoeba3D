@@ -23,15 +23,31 @@ int FPS = 0;
 
 void init ( GLvoid )   
 {
-
-	player = new Amoeba(51,51, 50,1, true);
-	ai = new AI(450,450 , 50,1, player, true);
+	player = new Amoeba(0, 0, 50,1, true);
+	//ai = new AI(60,60 , 50,1, player, true);
 	sprites.push_back( (Sprite*) (player) );
-	sprites.push_back( (Sprite*) (  ai  ) );
-	sprites.push_back( (Sprite*)(new Obstacle()) );
+	//sprites.push_back( (Sprite*) (  ai  ) );
+	//sprites.push_back( (Sprite*)(new Obstacle()) );
 	glShadeModel(GL_SMOOTH);
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glEnable ( GL_COLOR_MATERIAL );
+	glClearDepth(1.0f);
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LEQUAL);
+
+	glEnable(GL_LIGHTING);
+
+	GLfloat position [] = { 0.0f, 0.0f, -20.0f, 1.0f };
+	GLfloat ambient [] = { 0.0f, 0.3f, 0.3f, 1.0f };
+	GLfloat diffuse [] = { 0.0f, 1.0f, 0.0f, 0.5f };
+
+	glLightfv(GL_LIGHT0, GL_POSITION, position);
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, ambient);
+	glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
+
+	glEnable(GL_LIGHT0);
+
+	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 }
 
 void display ( void )   
@@ -45,8 +61,19 @@ void display ( void )
 		FPS = 0;
 	}
 
-	glClear(GL_COLOR_BUFFER_BIT);	
-	glLoadIdentity();	
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	
+
+	glColor4f(0.0,0.0,1.0,1.0);
+
+	glLoadIdentity();									// Reset The Current Modelview Matrix
+	glTranslatef(0.0f,0.0f,-10.0f);						// Move Left 1.5 Units And Into The Screen 6.0
+
+	/*	glBegin(GL_TRIANGLES);
+
+	glVertex3d(0.0,0.0,-10.0);
+	glVertex3d(5.0,0.0,-10.0);
+	glVertex3d(0.0,5.0,-10.0);
+	glEnd();*/
 
 	for( std::list<Sprite*>::iterator it = sprites.begin(); it != sprites.end(); it++)
 	{
@@ -56,12 +83,12 @@ void display ( void )
 			
 			if(it != it2)
 			{
-				(*it)->collision(*it2);
+				//(*it)->collision(*it2);
 			}
 		}
 
 		(*it)->draw();
-		(*it)->update();
+		//(*it)->update();
 	}
 
 	glutSwapBuffers ( );
@@ -70,12 +97,20 @@ void display ( void )
 
 void reshape ( int w, int h )
 {
-	glViewport( 0, 0, w , h );
-	glMatrixMode( GL_PROJECTION );  
-	glLoadIdentity();   
-	
-	gluOrtho2D(screenLeft, screenRight, screenBottom, screenTop);
-	glMatrixMode( GL_MODELVIEW );  
+	if (h==0)										
+	{
+		h=1;										
+	}
+
+	glViewport(0,0,w,h);
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+
+	gluPerspective(45.0f,(GLfloat)w/(GLfloat)h,0.1f,100.0f);
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
 }
 
 
@@ -160,7 +195,7 @@ int main ( int argc, char** argv )
 {
 	glutInit( &argc, argv );
 	init();
-	glutInitDisplayMode( GLUT_RGB | GLUT_DOUBLE );
+	glutInitDisplayMode( GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
 	glutInitWindowSize( 500, 500 ); 
 	glutCreateWindow( "Amoeba Boxing" );
 	//glutGameModeString("800x600:16@60");

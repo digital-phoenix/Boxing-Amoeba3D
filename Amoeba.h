@@ -218,7 +218,7 @@ class Amoeba : public Sprite  {
 					{
 						balls.addMetaball(new Metaball2D(px, py + radius + velY, morphRadius));
 					}
-					else if(velX == 0 & velY < 0)//Bottom
+					else if(velX == 0 && velY < 0)//Bottom
 					{
 						balls.addMetaball(new Metaball2D(px, py - radius + velY, morphRadius));
 					}

@@ -9,9 +9,8 @@
 #include <stack>
 
 #define THRESHOLD 1.0f
-#define GRID_SIZE 4
 #define DEBUG 0
-#define NUM_GRIDS 500 / GRID_SIZE
+#define NUM_GRIDS 20
 #define SQRT2 1.41421356237
 #define PI 3.14159265359
 
@@ -32,9 +31,12 @@ private:
 	std::list<triangle>blocks[16];
 	bool discovered [NUM_GRIDS][NUM_GRIDS];
 	double values[NUM_GRIDS + 1][NUM_GRIDS + 1];
+
 	double r,g,b;
 	int moves[16];
 	double minRadius;
+	double gridSize;
+	const static int triTable[256][16]; 
 
 public:
 	
@@ -112,10 +114,10 @@ public:
 		return score;
 	}
 
-	double calculatePoint( double  x, double y, std::vector<MetaballDrawData> &data){
+	double calculatePoint( double  x, double y, double z, std::vector<MetaballDrawData> &data){
 		double score = 0;
 		for( int i = 0; i < data.size(); i++){
-			score += data[i].ball.Equation(x, y);
+			score += data[i].ball.Equation(x, y, z);
 		}
 		return score;
 	}
@@ -171,67 +173,6 @@ public:
 
 	}
 	
-	std::pair<double,double> stepOnceTowardsBorder(std::pair<double,double> start, double force, std::vector<MetaballDrawData> &data){
-		std::pair<double, double> norm;
-		calcNormal( start.first, start.second, &norm.first, &norm.second, data);
-
-		double mag = sqrt( norm.second * norm.second + norm.first * norm.first);
-		if( abs(mag) > 0.0001){
-			norm.first /= mag;
-			norm.second /= mag;
-		}
-
-		if( abs(norm.first) < 0.0001 && abs(norm.second) < 0.0001){
-			norm.first = 0.0001;
-			norm.second = 0.0001;
-		}
-
-		double stepSize = minRadius / THRESHOLD - ( minRadius / force) + 0.01;
-		norm.first *= stepSize;
-		norm.second *= stepSize;
-		
-		norm.first += start.first;
-		norm.second += start.second;
-
-		return norm;
-	}
-
-	std::pair<double, double> findBorder( std::pair<double,double> start, std::vector<MetaballDrawData> &data){
-		double force;
-		while( ( force = calculatePoint( start.first, start.second, data) ) > THRESHOLD){
-			start = stepOnceTowardsBorder( start, force, data);
-		}
-		return start;
-	}
-
-	std::pair<double, double> traceBorder( std::pair<double,double> start, double stepSize, std::vector<MetaballDrawData> &data){
-		std::pair<double, double> res;
-		calcTangent( start.first, start.second, &res.first, &res.second, data);
-
-		double mag = sqrt( res.first * res.first+ res.second * res.second);
-		if( mag > 0.0001){
-			res.first /= mag;
-			res.second /= mag;
-		}
-
-		res.first *= stepSize / 2.0;
-		res.second *= stepSize / 2.0;
-		calcTangent( start.first + res.first, start.second + res.second, &res.first, &res.second, data);
-
-		mag = sqrt( res.first * res.first+ res.second * res.second);
-		if( mag > 0.0001){
-			res.first /= mag;
-			res.second /= mag;
-		}
-
-		res.first *= stepSize;
-		res.second *= stepSize;
-		res.first = start.first + res.first;
-		res.second = start.second + res.second;
-		res = stepOnceTowardsBorder(res, calculatePoint(res.first, res.second, data), data );
-		return res;
-	}
-
 	void drawCircle( double x, double y, double radius){
 		glBegin( GL_TRIANGLES);
 		double newX;
@@ -266,100 +207,184 @@ public:
 		}
 	}
 
-	void draw(){
-		int ballsCleared = 0;
-		std::vector<MetaballDrawData> ballData = getDrawData();
-		std::pair<double, double> start;
-		std::pair<double, double> lastPoint;
-		std::pair<double, double> nextPoint;
-		minRadius = findSmallestRadius(ballData);
-		double min = 5000.0;
-		double min2 = min;
-		double tmp;
-		int closest;
-		int closest2nd;
+	void getBoundaries( double *left, double *right, double *bottom, double *top, double *front, double *back, std::vector<MetaballDrawData> ballData){
+		*left = ballData[0].ball.getPx() - ballData[0].ball.getRadius();
+		*right = ballData[0].ball.getPx() + ballData[0].ball.getRadius();
+		*bottom = ballData[0].ball.getPy() - ballData[0].ball.getRadius();
+		*top = ballData[0].ball.getPy() + ballData[0].ball.getRadius();
+		*front = ballData[0].ball.getPz() - ballData[0].ball.getRadius();
+		*back = ballData[0].ball.getPz() + ballData[0].ball.getRadius();
 		
-		for( int i=0; i<ballData.size(); i++){
-			if( ballData[i].cleared ){
-				continue;
+		double temp;
+		for( unsigned int i = 0; i < ballData.size(); i++){
+			temp = ballData[0].ball.getPx() - ballData[0].ball.getRadius();
+			if( *left > temp){
+				*left = temp;
 			}
-
-			start = findBorder( std::pair<double,double>(ballData[i].ball.getPx(), ballData[i].ball.getPy()), ballData);
-			lastPoint = start;
-			for( int j =0; j < 500; j++){
-				nextPoint = traceBorder( lastPoint, 5, ballData);
-				min = 5000.0;
-				min2 = min;
-				closest = 0;
-				closest2nd = -1;
-				for( int k=0; k < ballData.size(); k++){
-					if( min > (tmp = ( nextPoint.first - ballData[k].ball.getPx()) * ( nextPoint.first - ballData[k].ball.getPx()) + ( nextPoint.second - ballData[k].ball.getPy()) * ( nextPoint.second - ballData[k].ball.getPy()) )){
-						min = tmp;
-						closest = k;
-					}
-				}
-				ballData[closest].cleared = true;
-				
-				if( closest != i){
-					glBegin( GL_TRIANGLES);
-
-					if( lastPoint.first * ballData[i].groupBall.getPy() - lastPoint.second * ballData[i].groupBall.getPx() + lastPoint.second * nextPoint.first
-						- lastPoint.first * nextPoint.second + ballData[i].groupBall.getPx() * nextPoint.second - nextPoint.first * ballData[i].groupBall.getPy() > 0.00001){
-					
-						glVertex2d( lastPoint.first, lastPoint.second);
-						glVertex2d( nextPoint.first, nextPoint.second);
-						glVertex2d( ballData[i].groupBall.getPx(), ballData[i].groupBall.getPy());
-
-					} else{
-						glVertex2d( nextPoint.first, nextPoint.second);
-						glVertex2d( lastPoint.first, lastPoint.second);
-						glVertex2d( ballData[i].groupBall.getPx(), ballData[i].groupBall.getPy());
-					}
-					glEnd();
-					
-				}
-
-				glColor3f(ballData[closest].r,ballData[closest].g, ballData[closest].b);
-				glBegin( GL_TRIANGLES);
-
-				if( lastPoint.first * ballData[closest].groupBall.getPy() - lastPoint.second * ballData[closest].groupBall.getPx() + lastPoint.second * nextPoint.first
-					- lastPoint.first * nextPoint.second + ballData[closest].groupBall.getPx() * nextPoint.second - nextPoint.first * ballData[closest].groupBall.getPy() > 0.00001){
-					
-					glVertex2d( lastPoint.first, lastPoint.second);
-					glVertex2d( nextPoint.first, nextPoint.second);
-					glVertex2d( ballData[closest].groupBall.getPx(), ballData[closest].groupBall.getPy());
-
-				} else{
-					glVertex2d( nextPoint.first, nextPoint.second);
-					glVertex2d( lastPoint.first, lastPoint.second);
-					glVertex2d( ballData[closest].groupBall.getPx(), ballData[closest].groupBall.getPy());
-				}
-				glEnd();
-
-				tmp =  (start.first - nextPoint.first) * (start.first - nextPoint.first) + (start.second - nextPoint.second) * (start.second - nextPoint.second);
-				if( tmp < 20){
-
-					glBegin( GL_TRIANGLES);
-					if( start.first * ballData[closest].groupBall.getPy() - start.second * ballData[closest].groupBall.getPx() + start.second * nextPoint.first
-						- start.first * nextPoint.second + ballData[closest].groupBall.getPx() * nextPoint.second - nextPoint.first * ballData[closest].groupBall.getPy() > 0.00001){
-
-						glVertex2d( nextPoint.first, nextPoint.second);		
-						glVertex2d( start.first, start.second);
-						glVertex2d( ballData[closest].groupBall.getPx(), ballData[closest].groupBall.getPy());
-
-					} else{
-						glVertex2d( start.first, start.second);
-						glVertex2d( nextPoint.first, nextPoint.second);
-						glVertex2d( ballData[closest].groupBall.getPx(), ballData[closest].groupBall.getPy());
-					}
-					glEnd();
-					
-					break;
-				}
-
-				lastPoint = nextPoint;
+			temp= ballData[0].ball.getPx() + ballData[0].ball.getRadius();
+			if( *right < temp){
+				*right = temp;
 			}
+			temp = ballData[0].ball.getPy() - ballData[0].ball.getRadius();
+			if( *bottom > temp){
+				*bottom = temp;
+			}
+			temp = ballData[0].ball.getPy() + ballData[0].ball.getRadius();
+			if( *top < temp){
+				*top = temp;
+			}
+			temp = ballData[0].ball.getPz() - ballData[0].ball.getRadius();
+			if( *front < temp){
+				*front = temp;
+			}
+			temp = ballData[0].ball.getPz() + ballData[0].ball.getRadius();
+			if( *back > temp){
+				*back = temp;
+			}
+		}
+	}
+
+	int calcCorners( double x, double y, double z, std::vector<MetaballDrawData> ballData){
+		int lookup = 0;
+		// 7 -- x, y, z
+		if (calculatePoint(x,y,z, ballData) >= THRESHOLD) lookup |= 128;
+		// 6 -- (x + 1), y,  z
+		if (calculatePoint(x + gridSize,y,z, ballData) >= THRESHOLD) lookup |= 64;
+		// 2 -- (x + 1), (y + 1), z
+		if (calculatePoint(x + gridSize,y + gridSize,z, ballData) >= THRESHOLD) lookup |= 4;
+		// 3 -- x, (y + 1), z
+		if (calculatePoint(x,y + gridSize,z, ballData) >= THRESHOLD) lookup |= 8;
+		// 4 -- x, y, (z + 1)
+		if (calculatePoint(x,y,z + gridSize, ballData) >= THRESHOLD) lookup |= 16;
+		// 5 -- (x + 1), y, (z + 1)
+		if (calculatePoint(x + gridSize,y,z + gridSize, ballData) >= THRESHOLD) lookup |= 32;
+		// 1 -- (x + 1), (y + 1), (z + 1) 
+		if (calculatePoint(x + gridSize,y + gridSize,z + gridSize, ballData) >= THRESHOLD) lookup |= 2;
+		// 0 -- x + (y + 1), (z + 1)
+		if (calculatePoint(x,y + gridSize,z + gridSize, ballData) >= THRESHOLD) lookup |= 1;
+		return lookup;
+	}
+	
+	void interpolatePoint( double vertex[3], double in[3], double out[3], int depth, std::vector<MetaballDrawData> &ballData){
+		if( depth < 0)
+			return;
+		for( int i =0; i < 3; i++)
+			vertex[i] = in[i] + (out[i] - in[i])/ 2;
+		double temp = calculatePoint( vertex[0], vertex[1], vertex[2], ballData);
+		if( temp == THRESHOLD){
+			return;
+		}else if( temp < THRESHOLD){
+			interpolatePoint(vertex, in, vertex, depth - 1, ballData);
+		}else{
+			interpolatePoint(vertex, vertex, out, depth - 1, ballData);
+		}
+	}
+
+	void interpolatePoint( double vertex[3], double ex1, double ey1, double ez1, double ex2, double ey2, double ez2, int depth, std::vector<MetaballDrawData> &ballData){
+		double edge1[] = {ex1, ey1, ez1};
+		double edge2[] = {ex2, ey2, ez2};
+
+		if( calculatePoint(ex1, ey1, ez1, ballData) >= THRESHOLD){
+			interpolatePoint(vertex, edge1, edge2, depth, ballData);
+		}else{
+			interpolatePoint(vertex, edge2, edge1, depth, ballData);
+		}
+	}
+
+	void calcVertexes( double vertexes[16][3], double x, double y, double z, std::vector<MetaballDrawData> &ballData){
+		// 0 - 1
+		// x, (y + 1), (z + 1)
+		// (x + 1),(y + 1), (z + 1)
+		interpolatePoint(	vertexes[0], x, y + gridSize, z + gridSize,
+			x + gridSize, y + gridSize, z + gridSize, 5, ballData);
+
+		// 1 - 2
+		// (x + 1), (y + 1), (z + 1) 
+		// (x + 1), (y + 1), z
+		interpolatePoint( vertexes[1],	x + gridSize, y + gridSize, z + gridSize,
+							x + gridSize, y +gridSize, z, 5, ballData);
+
+		// 2 - 3
+		// (x + 1), (y + 1), z 
+		// x, (y + 1), z 
+		interpolatePoint(vertexes[2],	x + gridSize, y + gridSize, z,
+							x, y + gridSize, z, 5, ballData);
+
+		// 3 - 0
+		// x, (y + 1), z
+		// x, (y + 1), (z + 1) 
+		interpolatePoint(	vertexes[3], x, y + gridSize, z,
+							x, y  + gridSize, z + gridSize, 5, ballData);
 			
+		// 4 - 5
+		// x, y, (z + 1) 
+		// (x + 1), y, (z + 1) 
+		interpolatePoint(	vertexes[4], x, y, z +gridSize,
+							x + gridSize, y, z +gridSize, 5, ballData);
+		// 5 - 6
+		// (x + 1), y, (z + 1)
+		// (x + 1), y, z
+		interpolatePoint( vertexes[5],	x + gridSize, y, z + gridSize,
+							x + gridSize, y, z, 5, ballData);
+
+		// 6 - 7
+		// (x + 1), y, z 
+		// x , y, z
+		interpolatePoint( vertexes[6],	x + gridSize, y, z,
+							x, y, z, 5, ballData);
+
+		// 7 - 4
+		// x, y, z
+		// x, y, (z + 1)
+		interpolatePoint( vertexes[7],	x, y, z,
+							x, y, z + gridSize, 5, ballData);
+
+		// 0 - 4
+		// x, (y + 1), (z + 1)
+		// x, y, (z + 1)
+		interpolatePoint(	vertexes[8], x, y + gridSize, z + gridSize,
+							x, y, z + gridSize, 5, ballData);
+
+		// 1 - 5
+		// (x + 1), (y + 1), (z + 1)
+		// (x + 1), y, (z + 1)
+		interpolatePoint(vertexes[9], x + gridSize, y + gridSize, z + gridSize,
+							x + gridSize, y, z + gridSize, 5, ballData);
+
+		// 2 - 6
+		// (x + 1), (y + 1), z
+		// (x + 1), y, z
+		interpolatePoint( vertexes[10],	x + gridSize, y + gridSize, z,
+							x + gridSize, y, z, 5, ballData);
+
+		// 3 - 7
+		// x, (y + 1), z
+		// x, y, z
+		interpolatePoint(vertexes[11],	x, y +gridSize, z,
+							x, y, z, 5, ballData);
+	}
+	
+	void draw(){
+		double vertexes[16][3];
+		double left, right, front, back, top, bottom;
+		std::vector<MetaballDrawData> ballData = getDrawData();
+		getBoundaries(&left, &right, &bottom, &top, &front, &back, ballData);
+		double temp = min( right - left, back - front);
+		temp = min(temp, top - bottom);
+		gridSize = temp / (double)NUM_GRIDS;
+		for( double x = left - gridSize; x <= right; x += gridSize){
+			for( double y = bottom - gridSize; y <= top; y += gridSize){
+				for( double z = front - gridSize; z <= back; z += gridSize){
+					int lookUp = calcCorners( x, y, z, ballData);
+					glBegin(GL_TRIANGLES);
+
+					calcVertexes(vertexes, x, y, z ,ballData); 
+					for( int i = 0; i < 16 && triTable[lookUp][i] != -1; i++){
+						glVertex3d(vertexes[triTable[lookUp][i]][0],vertexes[triTable[lookUp][i]][1],vertexes[triTable[lookUp][i]][2]);
+					}
+					glEnd();
+				}
+			}
 		}
 	}
 	
@@ -380,8 +405,8 @@ public:
 	inline bool checkSamples( int x, int y){
 		double score;
 
-		int sx = x + GRID_SIZE / 2;
-		int sy = y + GRID_SIZE / 2;
+		int sx = x + gridSize / 2;
+		int sy = y + gridSize / 2;
 		score = evaluatePoint(sx, sy);
 		if( score >= 0.8){
 			return true;

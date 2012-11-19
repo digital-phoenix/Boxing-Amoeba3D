@@ -12,6 +12,7 @@ public:
 		gooey = 1.0;
 		this->px = px;
 		this->py = py;
+		this->pz = -100;
 		this->radius = radius;
 		radiusSquared = radius * radius;
 	}
@@ -24,12 +25,11 @@ public:
 		radiusSquared = radius * radius;
 	}
 
-	inline double Equation(double x, double y) 
+	inline double Equation(double x, double y, double z =0) 
 	{ 
-		double denom =sqrt((x -px)*(x-px) + (y-py)*(y-py));
+		double denom =sqrt((x -px)*(x-px) + (y-py)*(y-py) + (z-pz)*(z-pz) );
 		if( denom == 0)
 			return 1000.0;
-		double val = denom * denom - denom + 0.25;
 		return (radius/denom);
 	}
 
@@ -74,9 +74,13 @@ public:
 		return py;
 	}
 
+	inline double getPz(){
+		return pz;
+	}
+
 private:
 	double gooey;
-	double px,py;//point x and y
+	double px,py,pz;//point x and y
 	double radius;
 	double radiusSquared;
 };
