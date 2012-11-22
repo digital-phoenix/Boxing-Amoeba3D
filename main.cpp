@@ -8,6 +8,9 @@
 #include "AI.h"
 #include "GraphicState.h"
 #include "Obstacle.h"
+#include "CCamera.h"
+
+#define CAMERASPEED	0.03f// The Camera Speed
 
 std::list<Sprite*> sprites;
 Amoeba *player;
@@ -20,6 +23,202 @@ int screenBottom = 0;
 clock_t currentTime;
 clock_t lastTime = clock();
 int FPS = 0;
+/*
+//angle of rotation
+GLfloat angle = 0.0;
+ 
+//diffuse light color variables
+GLfloat dlr = 1.0;
+GLfloat dlg = 1.0;
+GLfloat dlb = 1.0;
+ 
+//ambient light color variables
+GLfloat alr = 1.0;
+GLfloat alg = 1.0;
+GLfloat alb = 1.0;
+ 
+//light position variables
+GLfloat lx = 0.0;
+GLfloat ly = 0.0;
+GLfloat lz = 1.0;
+GLfloat lw = 0.0;
+*/
+CCamera camera;//Camera
+
+int numTex = 0;
+
+struct texData
+{
+	/*Image Related*/
+
+		// Data read from the header of the BMP file
+	unsigned char header[54]; // Each BMP file begins by a 54-bytes header
+	unsigned int dataPos;     // Position in the file where the actual data begins
+	unsigned int width, height;
+	unsigned int imageSize;   // = width*height*3
+	// Actual RGB data
+	unsigned char * data;
+
+	GLuint textureID;
+
+}tex[6];
+
+void Draw_Grid()
+{															
+
+	for(float i = -500; i <= 500; i += 5)
+	{
+		glBegin(GL_LINES);
+			glColor3ub(150, 190, 150);						
+			glVertex3f(-500, 0, i);					
+			glVertex3f(500, 0, i);
+			glVertex3f(i, 0,-500);							
+			glVertex3f(i, 0, 500);
+		glEnd();
+	}
+}
+
+void Draw_Skybox(float x, float y, float z, float width, float height, float length)
+{
+	// Center the Skybox around the given x,y,z position
+	x = x - width  / 2;
+	y = y - height / 2;
+	z = z - length / 2;
+
+
+	// Draw Front side
+	glBindTexture(GL_TEXTURE_2D, tex[0].textureID);
+	glBegin(GL_QUADS);	
+		glTexCoord2f(1.0f, 0.0f); glVertex3f(x,		  y,		z+length);
+		glTexCoord2f(1.0f, 1.0f); glVertex3f(x,		  y+height, z+length);
+		glTexCoord2f(0.0f, 1.0f); glVertex3f(x+width, y+height, z+length); 
+		glTexCoord2f(0.0f, 0.0f); glVertex3f(x+width, y,		z+length);
+	glEnd();
+
+	// Draw Back side
+	glBindTexture(GL_TEXTURE_2D, tex[1].textureID);
+	glBegin(GL_QUADS);		
+		glTexCoord2f(1.0f, 0.0f); glVertex3f(x+width, y,		z);
+		glTexCoord2f(1.0f, 1.0f); glVertex3f(x+width, y+height, z); 
+		glTexCoord2f(0.0f, 1.0f); glVertex3f(x,		  y+height,	z);
+		glTexCoord2f(0.0f, 0.0f); glVertex3f(x,		  y,		z);
+	glEnd();
+
+	// Draw Left side
+	glBindTexture(GL_TEXTURE_2D, tex[2].textureID);
+	glBegin(GL_QUADS);		
+		glTexCoord2f(1.0f, 1.0f); glVertex3f(x,		  y+height,	z);	
+		glTexCoord2f(0.0f, 1.0f); glVertex3f(x,		  y+height,	z+length); 
+		glTexCoord2f(0.0f, 0.0f); glVertex3f(x,		  y,		z+length);
+		glTexCoord2f(1.0f, 0.0f); glVertex3f(x,		  y,		z);		
+	glEnd();
+
+	// Draw Right side
+	glBindTexture(GL_TEXTURE_2D, tex[3].textureID);
+	glBegin(GL_QUADS);		
+		glTexCoord2f(0.0f, 0.0f); glVertex3f(x+width, y,		z);
+		glTexCoord2f(1.0f, 0.0f); glVertex3f(x+width, y,		z+length);
+		glTexCoord2f(1.0f, 1.0f); glVertex3f(x+width, y+height,	z+length); 
+		glTexCoord2f(0.0f, 1.0f); glVertex3f(x+width, y+height,	z);
+	glEnd();
+
+	// Draw Up side
+	glBindTexture(GL_TEXTURE_2D, tex[4].textureID);
+	glBegin(GL_QUADS);		
+		glTexCoord2f(0.0f, 0.0f); glVertex3f(x+width, y+height, z);
+		glTexCoord2f(1.0f, 0.0f); glVertex3f(x+width, y+height, z+length); 
+		glTexCoord2f(1.0f, 1.0f); glVertex3f(x,		  y+height,	z+length);
+		glTexCoord2f(0.0f, 1.0f); glVertex3f(x,		  y+height,	z);
+	glEnd();
+
+	// Draw Down side
+	glBindTexture(GL_TEXTURE_2D, tex[5].textureID);
+	glBegin(GL_QUADS);		
+		glTexCoord2f(0.0f, 0.0f); glVertex3f(x,		  y,		z);
+		glTexCoord2f(1.0f, 0.0f); glVertex3f(x,		  y,		z+length);
+		glTexCoord2f(1.0f, 1.0f); glVertex3f(x+width, y,		z+length); 
+		glTexCoord2f(0.0f, 1.0f); glVertex3f(x+width, y,		z);
+	glEnd();
+
+} 
+
+GLuint loadBMP_custom(const char * imagepath)
+{/*So far only load 24 bit bitmaps work.*/
+
+
+	// Open the file
+	FILE *file = fopen(imagepath,"rb");
+	if (!file)
+	{
+		printf("Image could not be opened\n"); 
+		return 0;
+	}
+
+	if ( fread(tex[numTex].header, 1, 54, file)!=54 )
+	{ // If not 54 bytes read : problem
+		printf("Not a correct BMP file\n");
+	
+		return 0;
+	}
+
+	if ( tex[numTex].header[0]!='B' || tex[numTex].header[1]!='M' )
+	{
+		printf("Not a correct BMP file\n");
+		return 0;
+	}
+
+	// Read ints from the byte array
+	tex[numTex].dataPos    = *(int*)&(tex[numTex].header[0x0A]);
+	tex[numTex].imageSize  = *(int*)&(tex[numTex].header[0x22]);
+	tex[numTex].width      = *(int*)&(tex[numTex].header[0x12]);
+	tex[numTex].height     = *(int*)&(tex[numTex].header[0x16]);
+
+    // Some BMP files are misformatted, guess missing information
+	if (tex[numTex].imageSize==0) 
+	{
+		tex[numTex].imageSize=tex[numTex].width*tex[numTex].height*3;// 3 : one byte for each Red, Green and Blue component
+		puts("Missing imageSize");
+		printf("%d x %d\n", tex[numTex].width, tex[numTex].height);
+	}
+			
+	if (tex[numTex].dataPos==0)  
+	{
+		tex[numTex].dataPos=54; // The BMP header is done that way
+		puts("Missing data pos\n");
+	}
+
+		// Create a buffer
+	tex[numTex].data = new unsigned char [tex[numTex].imageSize];
+ 
+
+	// Read the actual data from the file into the buffer
+	fread(tex[numTex].data,1,tex[numTex].imageSize,file);
+ 
+	//Everything is in memory now, the file can be closed
+	fclose(file);
+
+	
+	glGenTextures(1, &(tex[numTex].textureID) );
+ 
+
+	glBindTexture(GL_TEXTURE_2D, tex[numTex].textureID);
+
+	
+	glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, tex[numTex].width, tex[numTex].height, 0, GL_BGR_EXT, GL_UNSIGNED_BYTE, tex[numTex].data);
+	
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	
+	
+
+	numTex++;
+}
 
 void init ( GLvoid )   
 {
@@ -34,6 +233,7 @@ void init ( GLvoid )
 	glClearDepth(1.0f);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
+	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
 	glEnable(GL_LIGHTING);
 
@@ -47,22 +247,37 @@ void init ( GLvoid )
 
 	glEnable(GL_LIGHT0);
 
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+	glEnable(GL_TEXTURE_2D);
+
+	camera.Position_Camera(0, 2.5f, 5,	0, 2.5f, 0,   0, 1, 0);
+
 }
 
 void display ( void )   
 {
-
+	/*
 	FPS++;
 	currentTime = clock();
 	if( currentTime - lastTime >= CLOCKS_PER_SEC){
 		//printf("FPS = %d\n", FPS);
 		lastTime = currentTime;
 		FPS = 0;
-	}
+	}*/
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	
 
+	glColor4f(0.0,0.0,1.0,1.0);
+
+	glLoadIdentity();									// Reset The Current Modelview Matrix
+	//glTranslatef(0.0f,0.0f,-10.0f);						// Move Left 1.5 Units And Into The Screen 6.0
+
+	gluLookAt(camera.mPos.x,  camera.mPos.y,  camera.mPos.z,	camera.mView.x, camera.mView.y, camera.mView.z, camera.mUp.x,   camera.mUp.y,   camera.mUp.z);
+	
+	Draw_Skybox(0,0,0,100,100,100);
+	Draw_Grid();
+	
+
+	
 	glColor4f(0.0,0.0,1.0,1.0);
 
 	glLoadIdentity();									// Reset The Current Modelview Matrix
@@ -87,7 +302,7 @@ void display ( void )
 			}
 		}
 
-		(*it)->draw();
+		//(*it)->draw();
 		//(*it)->update();
 	}
 
@@ -112,7 +327,6 @@ void reshape ( int w, int h )
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 }
-
 
 void mouse(int btn, int state, int x, int y)
 {
@@ -145,13 +359,22 @@ void keyboard ( unsigned char key, int x, int y )
 			player->retractArm();
 			break;
 
-		case('q'):
-			player->incAngle();
+		case('w'):
+			camera.Move_Camera(CAMERASPEED);
 			break;
 
-		case('w'):
-			player->decAngle();
-		break;
+		case('s'):
+			camera.Move_Camera(-CAMERASPEED);
+			break;
+		case('a'):
+			camera.Rotate_View(0,-CAMERASPEED, 0);
+			break;
+
+		case('d'):
+			camera.Rotate_View(0, CAMERASPEED, 0);
+			break;
+		
+
 
 		case(' '):
 			player->setVelocity(0,0);
@@ -197,6 +420,7 @@ int main ( int argc, char** argv )
 	init();
 	glutInitDisplayMode( GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
 	glutInitWindowSize( 500, 500 ); 
+	glutInitWindowPosition (100, 100); //set the position of the window
 	glutCreateWindow( "Amoeba Boxing" );
 	//glutGameModeString("800x600:16@60");
 	//glutEnterGameMode();
@@ -205,6 +429,17 @@ int main ( int argc, char** argv )
 	glutMouseFunc(mouse);
 	glutKeyboardFunc( keyboard );
 	glutSpecialFunc( arrow_keys );
+
+	loadBMP_custom("cubemap1.bmp");
+    loadBMP_custom("cubemap2.bmp");
+	loadBMP_custom("cubemap3.bmp");
+	loadBMP_custom("cubemap4.bmp");
+	loadBMP_custom("cubemap5.bmp");
+	loadBMP_custom("cubemap6.bmp");
+
+	for(int i = 0; i<numTex; i++)
+		printf("%d\n", tex[i].textureID);
+
 	glutMainLoop();
 
 	return 0;
