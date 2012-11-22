@@ -62,7 +62,7 @@ class AI : Amoeba
 
 		public:
 
-		AI(double,double,double, double, double, Amoeba*, bool);
+		AI(double,double, double, double, Amoeba*, bool);
 	
 		Amoeba *getPlayer(){
 			return player;

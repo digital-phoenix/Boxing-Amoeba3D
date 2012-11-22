@@ -2,7 +2,7 @@
 #define AMOEBA_H_
 
 #include"Sprite.h"
-#include"Metaball3DGroup.h"
+#include"Metaball2DGroup.h"
 #include"Obstacle.h"
 #include <string>
 #include <time.h>
@@ -11,15 +11,15 @@ class Amoeba : public Sprite  {
 	protected:
 
 		/*Characteristics*/
-		Metaball3DGroup balls;
+		Metaball2DGroup balls;
 		bool needToResize;
 		bool isHit;
 		time_t isHitTimer;
 		bool morphBall;
 		clock_t morphBallTimer;
 
-		double velX, velY, velZ;
-		double px, py, pz;
+		double velX, velY;
+		double px, py;
 		double radius;
 		double scale;
 		bool normal;
@@ -37,7 +37,7 @@ class Amoeba : public Sprite  {
 	    int leftMx, leftMy;
 		float lslope;
 
-		Metaball3DGroup *defendArm;
+		Metaball2DGroup *defendArm;
 
 		bool defendActive;
 		bool defendSegActive;
@@ -80,7 +80,7 @@ class Amoeba : public Sprite  {
 
 	public:
 		Amoeba();
-		Amoeba(double,double,double, double, double, bool);
+		Amoeba(double,double, double, double, bool);
 		
 		int getIdentifier(){
 			return AMOEBA_TYPE;
@@ -137,14 +137,9 @@ class Amoeba : public Sprite  {
 			velY = y;
 		}
 
-		void setVelz( double z){
-			velZ = z;
-		}
-
-		void setVelocity( double x, double y, double z){
+		void setVelocity( double x, double y){
 			setVelx(x);
 			setVely(y);
-			setVelz(z);
 		}
 
 		double getRadius()
@@ -160,11 +155,6 @@ class Amoeba : public Sprite  {
 		double getPy()
 		{
 			return py;
-		}
-
-		double getPy()
-		{
-			return pz;
 		}
 
 		
@@ -196,7 +186,6 @@ class Amoeba : public Sprite  {
 			//radAngle-=20;
 		}
 
-		/*
 		void morph()
 		{
 			if(!morphBall)
@@ -211,25 +200,25 @@ class Amoeba : public Sprite  {
 
 					if(velX > 0 && velY > 0)//Up-Right
 					{
-						balls.addMetaball(new Metaball3D(px + radius + velX, py + radius + velY, morphRadius));
+						balls.addMetaball(new Metaball2D(px + radius + velX, py + radius + velY, morphRadius));
 					}
 					else if(velX > 0 && velY < 0)//Down-Right
 					{
-						balls.addMetaball(new Metaball3D(px + radius + velX, py - radius + velY, morphRadius));
+						balls.addMetaball(new Metaball2D(px + radius + velX, py - radius + velY, morphRadius));
 					}
 					else if(velX < 0 && velY > 0)//Up-Left
 					{
-						balls.addMetaball(new Metaball3D(px - radius + velX, py + radius + velY, morphRadius));
+						balls.addMetaball(new Metaball2D(px - radius + velX, py + radius + velY, morphRadius));
 					}
 					else if(velX < 0 && velY < 0)//Down-Left
 					{
-						balls.addMetaball(new Metaball3D(px - radius + velX, py - radius + velY, morphRadius));
+						balls.addMetaball(new Metaball2D(px - radius + velX, py - radius + velY, morphRadius));
 					}
 					else if(velX == 0 && velY > 0)//Up
 					{
 						balls.addMetaball(new Metaball2D(px, py + radius + velY, morphRadius));
 					}
-					else if(velX == 0 & velY < 0)//Bottom
+					else if(velX == 0 && velY < 0)//Bottom
 					{
 						balls.addMetaball(new Metaball2D(px, py - radius + velY, morphRadius));
 					}
@@ -253,7 +242,6 @@ class Amoeba : public Sprite  {
 			}
 
 		}
-		*/
 
 		void extendAttackArm();
 

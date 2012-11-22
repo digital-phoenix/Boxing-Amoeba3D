@@ -1,29 +1,16 @@
-#include <windows.h>
-#include <gl/gl.h>     
-#include <gl/glut.h>   
-#include <list>
-#include<time.h>
-#include "Sprite.h"
-#include "Amoeba.h"
-#include "AI.h"
-#include "GraphicState.h"
-#include "Obstacle.h"
+#include <GL/glut.h>
+#include <time.h>
+#include <stdio.h>
+#include <math.h>
 #include "CCamera.h"
+
+
+#ifndef GL_BGR
+#define GL_BGR 0x80E0
+#endif
 
 #define CAMERASPEED	0.03f// The Camera Speed
 
-std::list<Sprite*> sprites;
-Amoeba *player;
-AI *ai;
-
-int screenLeft = 0;
-int screenRight = 500;
-int screenTop = 500;
-int screenBottom = 0;
-clock_t currentTime;
-clock_t lastTime = clock();
-int FPS = 0;
-/*
 //angle of rotation
 GLfloat angle = 0.0;
  
@@ -42,10 +29,21 @@ GLfloat lx = 0.0;
 GLfloat ly = 0.0;
 GLfloat lz = 1.0;
 GLfloat lw = 0.0;
-*/
-CCamera camera;//Camera
+
+//Used to control framerate
+clock_t deltaTime = 0.0;
+clock_t currentTime = 0.0;
+clock_t lastTime = clock();
+
+
+//used for camera
+
+int cameraX = 0;
+int cameraY = 0;
+int cameraZ = 0;
 
 int numTex = 0;
+
 
 struct texData
 {
@@ -64,6 +62,20 @@ struct texData
 
 }tex[6];
 
+
+
+CCamera objCamera; 
+
+
+//draw the cube
+void cube (void) {
+  glRotatef(angle, 1.0, 0.0, 0.0); //rotate on the x axis
+  glRotatef(angle, 0.0, 1.0, 0.0); //rotate on the y axis
+  glRotatef(angle, 0.0, 0.0, 1.0); //rotate on the z axis
+  glutSolidCube(2); //draw the cube
+}
+
+
 void Draw_Grid()
 {															
 
@@ -77,6 +89,41 @@ void Draw_Grid()
 			glVertex3f(i, 0, 500);
 		glEnd();
 	}
+}
+
+ 
+void init (void) {
+    glShadeModel(GL_SMOOTH);							// Enable Smooth Shading
+	glClearColor(0.0f, 0.0f, 0.0f, 0.5f);				// Black Background
+	glClearDepth(1.0f);									// Depth Buffer Setup
+	glEnable(GL_DEPTH_TEST);							// Enables Depth Testing
+	glDepthFunc(GL_LEQUAL);								// The Type Of Depth Testing To Do
+	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);	// Really Nice Perspective Calculations
+
+	glEnable(GL_TEXTURE_2D);
+
+				           // Position      View(target)  Up
+	objCamera.Position_Camera(0, 2.5f, 5,	0, 2.5f, 0,   0, 1, 0);
+
+
+}
+
+void reshape ( int w, int h )
+{
+	if (h==0)										
+	{
+		h=1;										
+	}
+
+	glViewport(0,0,w,h);
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+
+	gluPerspective(45.0f,(GLfloat)w/(GLfloat)h,0.1f,100.0f);
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
 }
 
 void Draw_Skybox(float x, float y, float z, float width, float height, float length)
@@ -141,8 +188,9 @@ void Draw_Skybox(float x, float y, float z, float width, float height, float len
 		glTexCoord2f(0.0f, 1.0f); glVertex3f(x+width, y,		z);
 	glEnd();
 
-} 
+}
 
+ 
 GLuint loadBMP_custom(const char * imagepath)
 {/*So far only load 24 bit bitmaps work.*/
 
@@ -205,7 +253,7 @@ GLuint loadBMP_custom(const char * imagepath)
 	glBindTexture(GL_TEXTURE_2D, tex[numTex].textureID);
 
 	
-	glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, tex[numTex].width, tex[numTex].height, 0, GL_BGR_EXT, GL_UNSIGNED_BYTE, tex[numTex].data);
+	glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, tex[numTex].width, tex[numTex].height, 0, GL_BGR, GL_UNSIGNED_BYTE, tex[numTex].data);
 	
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
@@ -220,217 +268,116 @@ GLuint loadBMP_custom(const char * imagepath)
 
 	numTex++;
 }
-
-void init ( GLvoid )   
+ 
+void display (void) 
 {
-	player = new Amoeba(0, 0, 50,1, true);
-	//ai = new AI(60,60 , 50,1, player, true);
-	sprites.push_back( (Sprite*) (player) );
-	//sprites.push_back( (Sprite*) (  ai  ) );
-	//sprites.push_back( (Sprite*)(new Obstacle()) );
-	glShadeModel(GL_SMOOTH);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glEnable ( GL_COLOR_MATERIAL );
-	glClearDepth(1.0f);
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LEQUAL);
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
-	glEnable(GL_LIGHTING);
+	 currentTime = clock();
+     deltaTime = currentTime - lastTime;
+        
+        if (deltaTime < 20){
+                return;
+        }
+ 
+        lastTime = currentTime;
 
-	GLfloat position [] = { 0.0f, 0.0f, -20.0f, 1.0f };
-	GLfloat ambient [] = { 0.0f, 0.3f, 0.3f, 1.0f };
-	GLfloat diffuse [] = { 0.0f, 1.0f, 0.0f, 0.5f };
+    glClearColor (0.0,0.0,0.0,1.0); //clear the screen to black
+    glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //clear the color buffer and the depth buffer
 
-	glLightfv(GL_LIGHT0, GL_POSITION, position);
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, ambient);
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
+	glLoadIdentity();  
 
-	glEnable(GL_LIGHT0);
-
-	glEnable(GL_TEXTURE_2D);
-
-	camera.Position_Camera(0, 2.5f, 5,	0, 2.5f, 0,   0, 1, 0);
-
-}
-
-void display ( void )   
-{
-	/*
-	FPS++;
-	currentTime = clock();
-	if( currentTime - lastTime >= CLOCKS_PER_SEC){
-		//printf("FPS = %d\n", FPS);
-		lastTime = currentTime;
-		FPS = 0;
-	}*/
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	
-
-	glColor4f(0.0,0.0,1.0,1.0);
-
-	glLoadIdentity();									// Reset The Current Modelview Matrix
-	//glTranslatef(0.0f,0.0f,-10.0f);						// Move Left 1.5 Units And Into The Screen 6.0
-
-	gluLookAt(camera.mPos.x,  camera.mPos.y,  camera.mPos.z,	camera.mView.x, camera.mView.y, camera.mView.z, camera.mUp.x,   camera.mUp.y,   camera.mUp.z);
-	
-	Draw_Skybox(0,0,0,100,100,100);
+	gluLookAt(objCamera.mPos.x,  objCamera.mPos.y,  objCamera.mPos.z,	
+			  objCamera.mView.x, objCamera.mView.y, objCamera.mView.z,	
+			  objCamera.mUp.x,   objCamera.mUp.y,   objCamera.mUp.z);
+		
 	Draw_Grid();
+	Draw_Skybox(0,0,0,100,100,100);
+ 
+    
+    glutSwapBuffers(); //swap the buffers
 	
 
 	
 
-	for( std::list<Sprite*>::iterator it = sprites.begin(); it != sprites.end(); it++)
-	{
 
-		for( std::list<Sprite*>::iterator it2 = sprites.begin(); it2 != sprites.end(); it2++)
-		{
-			
-			if(it != it2)
-			{
-				//(*it)->collision(*it2);
-			}
-		}
-
-		//(*it)->draw();
-		//(*it)->update();
-	}
-
-	glutSwapBuffers ( );
-	glutPostRedisplay();
 }
 
-void reshape ( int w, int h )
-{
-	if (h==0)										
-	{
-		h=1;										
-	}
 
-	glViewport(0,0,w,h);
-
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	gluPerspective(45.0f,(GLfloat)w/(GLfloat)h,0.1f,100.0f);
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-}
-
-void mouse(int btn, int state, int x, int y)
-{
-    if(btn==GLUT_LEFT_BUTTON && state==GLUT_DOWN)
-    {
-		player->setLeftMousePos(x,screenTop -y);
-		player->extendAttackArm();
+void keyboard (unsigned char key, int x, int y) {
+    if (key=='r') { 
+        dlr = 1.0; //change light to red
+        dlg = 0.0;
+        dlb = 0.0;
     }
-
-    if(btn==GLUT_RIGHT_BUTTON && state==GLUT_DOWN)
-    {
-		player->setRightMousePos(x, screenTop - y);
-		player->extendDefendArm();
+    if (key=='g') { 
+        dlr = 0.0; //change light to green
+        dlg = 1.0;
+        dlb = 0.0;
     }
-}
+    if (key=='b') { 
+        dlr = 0.0; //change light to blue
+        dlg = 0.0;
+        dlb = 1.0;
+    }
+  /*  if (key=='w') { 
+        ly += 10.0; //move the light up
+    }
+    if (key=='s') { 
+        ly -= 10.0; //move the light down
+    }
+    if (key=='a') { 
+        lx -= 10.0; //move the light left
+    }
+    if (key=='d') { 
+        lx += 10.0; //move the light right
+    }*/
 
-void keyboard ( unsigned char key, int x, int y )
-{
-	switch ( key ) 
+	if(key == 'w')
+	{	
+		objCamera.Move_Camera(CAMERASPEED);
+	}
+
+	if(key == 's')
 	{
-		case(27):
-			exit(0);
-			break;
-		
-		case('e'):
-			player->extendAttackArm();
-			break;
-
-		case('r'):
-			player->retractArm();
-			break;
-
-		case('w'):
-			camera.Move_Camera(CAMERASPEED);
-			break;
-
-		case('s'):
-			camera.Move_Camera(-CAMERASPEED);
-			break;
-		case('a'):
-			camera.Rotate_View(0,-CAMERASPEED, 0);
-			break;
-
-		case('d'):
-			camera.Rotate_View(0, CAMERASPEED, 0);
-			break;
-		
-
-
-		case(' '):
-			player->setVelocity(0,0);
-			break;
-
-		default:
-			break;
-	}
-}
-
-void arrow_keys ( int a_keys, int x, int y )
-{
-
-	bool moves[4];
-	player->getAvailableMoves(moves);
-
-	switch ( a_keys ) {
-		case GLUT_KEY_UP:
-			if( moves[0] )
-				player->setVely( 5.0f);
-			break;
-		case GLUT_KEY_DOWN:
-			if( moves[1] )
-				player->setVely( -5.0f);
-			break;
-		case GLUT_KEY_LEFT:
-			if( moves[2] )
-				player->setVelx(-5.0f);
-			break;
-		case GLUT_KEY_RIGHT:
-			if( moves[3] )
-				player->setVelx(5.0f);
-			break;
-		default:
-			break;
+		objCamera.Move_Camera(-CAMERASPEED);
 	}
 
+	if(key == 'a')
+	{	
+		objCamera.Rotate_View(0,-CAMERASPEED, 0);
+	}
+
+	if(key == 'd')
+	{
+		objCamera.Rotate_View(0, CAMERASPEED, 0);
+	}
 }
-
-int main ( int argc, char** argv )
-{
-	glutInit( &argc, argv );
-	init();
-	glutInitDisplayMode( GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
-	glutInitWindowSize( 500, 500 ); 
-	glutInitWindowPosition (100, 100); //set the position of the window
-	glutCreateWindow( "Amoeba Boxing" );
-	//glutGameModeString("800x600:16@60");
-	//glutEnterGameMode();
-	glutDisplayFunc( display );
-	glutReshapeFunc( reshape );
-	glutMouseFunc(mouse);
-	glutKeyboardFunc( keyboard );
-	glutSpecialFunc( arrow_keys );
-
+ 
+/*int main (int argc, char **argv) {
+    glutInit (&argc, argv);
+    glutInitDisplayMode (GLUT_DOUBLE | GLUT_DEPTH); //set the display to Double buffer, with depth
+    glutInitWindowSize (500, 500); //set the window size
+    glutInitWindowPosition (100, 100); //set the position of the window
+    glutCreateWindow ("A basic OpenGL Window"); //the captionof the window
+    init (); //call the init function
+    glutDisplayFunc (display); //use the display function to draw everything
+    glutIdleFunc (display); //update any variables in display,display can be changed to anyhing, as long as you move the variables to be updated, in this case, angle++;
+    glutReshapeFunc (reshape); //reshape the window accordingly
+ 
+    glutKeyboardFunc (keyboard); //check the keyboard
 	loadBMP_custom("cubemap1.bmp");
-    loadBMP_custom("cubemap2.bmp");
+	loadBMP_custom("cubemap2.bmp");
 	loadBMP_custom("cubemap3.bmp");
 	loadBMP_custom("cubemap4.bmp");
 	loadBMP_custom("cubemap5.bmp");
 	loadBMP_custom("cubemap6.bmp");
 
 	for(int i = 0; i<numTex; i++)
-		printf("%d\n", tex[i].textureID);
+		printf("%d", tex[i].textureID);
+	
+	
+    glutMainLoop (); //call the main loop
+	
 
-	glutMainLoop();
-
-	return 0;
-}
+    return 0;
+}*/
