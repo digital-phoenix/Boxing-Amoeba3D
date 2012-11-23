@@ -1,25 +1,6 @@
 #include <math.h>
 #include "CCamera.h"
 
-
-
-
-/*CCamera::CCamera()
-{
-	mPos = new tVector3(0,0,0);
-	mView = new tVector3(0,0,0);
-	mUp = new tVector3(0,0,0);
-
-}
-
-CCamera::CCamera(tVector3 pos, tVector3 view, tVector3 up)
-{
-	mPos = pos;
-	mView = view;
-	mUp = up;
-
-}
-*/
 void CCamera::Move_Camera(float cameraspeed)
 {
 	Vector3 vVector = tVector3(0,0,0);		// init a new view vector
@@ -32,6 +13,18 @@ void CCamera::Move_Camera(float cameraspeed)
 	mView.z = mView.z + vVector.z * cameraspeed;
 }
 
+void CCamera::Fly(float cameraspeed)
+{
+	mPos.y += cameraspeed;
+	mView.y += cameraspeed;
+
+}
+
+void CCamera::Look(float cameraspeed)
+{
+	mView.y += cameraspeed;
+
+}
 void CCamera::Rotate_View(float x, float y, float z)
 {
 	Vector3 vVector = mView - mPos;
@@ -55,8 +48,8 @@ void CCamera::Rotate_View(float x, float y, float z)
 
 
 void CCamera::Mouse_Move()
-{
-	/*POINT mousePos;	
+{/*
+	POINT mousePos;	
 	int mid_x = mWindowWidth  >> 1;	
 	int mid_y = mWindowHeight >> 1;	
 	float angle_y  = 0.0f;				

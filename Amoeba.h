@@ -86,8 +86,8 @@ class Amoeba : public Sprite  {
 			return AMOEBA_TYPE;
 		}
 
-		void draw(){
-			balls.draw();
+		int draw(double vertices[25000][4], double normals[25000][4]){
+			return balls.draw(vertices, normals);
 		};
 
 		bool getResize()
