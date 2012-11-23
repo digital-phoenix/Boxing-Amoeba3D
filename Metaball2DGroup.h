@@ -132,7 +132,7 @@ public:
 		return score;
 	}
 
-	void calcTangent( double x, double y, double *tx, double *ty, std::vector<MetaballDrawData> &data){
+/*	void calcTangent( double x, double y, double *tx, double *ty, std::vector<MetaballDrawData> &data){
 
 		*tx = 0;
 		*ty = 0;
@@ -145,7 +145,7 @@ public:
 		}
 		
 	}
-
+*/
 	double findSmallestRadius( std::vector<MetaballDrawData> &data){
 		double min = 10000.0;
 		double tmp;
@@ -159,18 +159,23 @@ public:
 		return min;
 	}
 
-	void calcNormal( double x, double y, double *tx, double *ty, std::vector<MetaballDrawData> &data){
+	void calcNormal( double x, double y, double z, double *tx, double *ty, double *tz, std::vector<MetaballDrawData> &data){
 		*tx = 0;
 		*ty = 0; 
+		*tz = 0;
 
-		double tmpx, tmpy;
+		double tmpx, tmpy,tmpz;
 
 		for( int i = 0; i < data.size(); i++){
-			data[i].ball.calcNormal(x, y, &tmpx, &tmpy);
+			data[i].ball.calcNormal(x, y, z, &tmpx, &tmpy, &tmpz);
 			*tx += tmpx;
 			*ty += tmpy;
+			*tz += tmpz;
 		}
-
+		double scale = *tx * *tx + *ty * *ty + *tz * *tz;
+		*tx /= scale;
+		*ty /= scale;
+		*tz /= scale;
 	}
 	
 	void drawCircle( double x, double y, double radius){
@@ -364,9 +369,11 @@ public:
 							x, y, z, 5, ballData);
 	}
 	
-	void draw(){
+	int draw(double vertices[25000][4], double normals[25000][4]){
 		double vertexes[16][3];
+		int vertexNum = 0;
 		double left, right, front, back, top, bottom;
+		double nx, ny, nz;
 		std::vector<MetaballDrawData> ballData = getDrawData();
 		getBoundaries(&left, &right, &bottom, &top, &front, &back, ballData);
 		double temp = min( right - left, back - front);
@@ -376,16 +383,25 @@ public:
 			for( double y = bottom - gridSize; y <= top; y += gridSize){
 				for( double z = front - gridSize; z <= back; z += gridSize){
 					int lookUp = calcCorners( x, y, z, ballData);
-					glBegin(GL_TRIANGLES);
 
 					calcVertexes(vertexes, x, y, z ,ballData); 
 					for( int i = 0; i < 16 && triTable[lookUp][i] != -1; i++){
-						glVertex3d(vertexes[triTable[lookUp][i]][0],vertexes[triTable[lookUp][i]][1],vertexes[triTable[lookUp][i]][2]);
+						vertices[vertexNum][0] = vertexes[triTable[lookUp][i]][0];
+						vertices[vertexNum][1] = vertexes[triTable[lookUp][i]][1];
+						vertices[vertexNum][2] = vertexes[triTable[lookUp][i]][2];
+						vertices[vertexNum][3] = 1;
+						calcNormal(vertices[vertexNum][0], vertices[vertexNum][1], vertices[vertexNum][2], &nx, &ny, &nz, ballData);
+						normals[vertexNum][0] = nx;
+						normals[vertexNum][1] = ny;
+						normals[vertexNum][2] = nz;
+						normals[vertexNum][3] = 1;
+
+						vertexNum++;
 					}
-					glEnd();
 				}
 			}
 		}
+		return vertexNum;
 	}
 	
 

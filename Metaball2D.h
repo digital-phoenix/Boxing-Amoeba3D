@@ -12,7 +12,7 @@ public:
 		gooey = 1.0;
 		this->px = px;
 		this->py = py;
-		this->pz = -100;
+		this->pz = 0;//-100;
 		this->radius = radius;
 		radiusSquared = radius * radius;
 	}
@@ -32,20 +32,23 @@ public:
 			return 1000.0;
 		return (radius/denom);
 	}
-
-	inline void calcNormal( double x, double y, double *nx, double *ny){
-		double denom =pow((x -px)*(x-px) + (y-py)*(y-py), 1.0 + gooey / 2.0) + 0.0001;
-		double scale = -gooey * radius / denom;
-		*nx = (px - x) * scale;
-		*ny = (py - y) * scale;
+	/*
+	*(2(a-x),2(b-y),2(c-z))/((x-a)^2 + (y -b)^2 + (z -c)^2)^3/2
+	*
+	*/
+	inline void calcNormal( double x, double y, double z, double *nx, double *ny, double *nz){
+		double denom =pow((x -px)*(x-px) + (y-py)*(y-py) + (z - pz) * (z - pz), 3.0/ 2.0) + 0.0001;
+		*nx = 2 * (px - x) / denom;
+		*ny =  2 * (py - y) / denom;
+		*nz = 2 * (pz - z) / denom;
 	}
 
-	inline void calcTangent( double x, double y, double *tx, double *ty){
+	/*inline void calcTangent( double x, double y, double *tx, double *ty){
 		calcNormal(x, y, tx, ty);
 		double tmp = *tx;
 		*tx = -*ty;
 		*ty = tmp;
-	}
+	}*/
 
 	void move(double x, double y)
 	{

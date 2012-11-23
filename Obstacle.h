@@ -30,8 +30,8 @@ class Obstacle : Sprite  {
 			velocities[1] = std::pair<double, double> (-2, 2);
 		}
 
-		void draw(){
-			ballContainer.draw();
+		int draw(double vertices[25000][4], double normals[25000][4]){
+			return ballContainer.draw(vertices, normals);
 		}
 
 		void collision(Sprite*){

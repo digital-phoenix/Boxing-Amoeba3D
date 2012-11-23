@@ -15,7 +15,7 @@ class Sprite
 {
 	public:
 		
-		virtual void draw() = 0;
+		virtual int draw(double vertices[25000][4], double normals[25000][4]) = 0;
 		virtual void collision(Sprite*) = 0;
 		virtual void update() = 0;
 		virtual int getIdentifier() = 0;		
