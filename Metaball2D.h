@@ -25,7 +25,7 @@ public:
 		radiusSquared = radius * radius;
 	}
 
-	inline double Equation(double x, double y, double z =0) 
+	inline double Equation(double x, double y, double z = 0) 
 	{ 
 		double denom =sqrt((x -px)*(x-px) + (y-py)*(y-py) + (z-pz)*(z-pz) );
 		if( denom == 0)

@@ -45,7 +45,7 @@ public:
 		r = red; 
 		g = green;
 		b = blue;
-
+		 
 		minRadius = 1000;
 
 	}
