@@ -1,3 +1,6 @@
+#ifndef _AI_H_
+#define _AI_H_
+
 #include"Sprite.h"
 #include"Amoeba.h"
 #include"Metaball2DGroup.h"
@@ -85,3 +88,5 @@ class AI : Amoeba
 		void extendDefendArm();		
 	
 };
+
+#endif

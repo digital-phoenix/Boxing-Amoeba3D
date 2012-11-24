@@ -1,6 +1,6 @@
 #include <windows.h>
-#include <gl/gl.h>     
-#include <gl/glut.h>   
+#include <gl/gl.h>
+#include <gl/glut.h>
 #include <list>
 #include<time.h>
 #include "Sprite.h"
@@ -10,7 +10,22 @@
 #include "Obstacle.h"
 #include "CCamera.h"
 
-#define CAMERASPEED	0.05f// The Camera Speed
+#define CAMERASPEED 0.05f// The Camera Speed
+
+
+#define ABS(x) (x < 0 ? -(x) : (x))
+#define MIN(x,y) (x < y ? x : y)
+#define MAX(x,y) (x > y ? x : y)
+#define TRUE 1
+#define FALSE 0
+#define ESC 27
+#define PI 3.141592653589793238462643
+#define DTOR 0.0174532925
+#define RTOD 57.2957795
+#define CROSSPROD(p1,p2,p3) \
+p3.x = p1.y*p2.z - p1.z*p2.y; \
+p3.y = p1.z*p2.x - p1.x*p2.z; \
+p3.z = p1.x*p2.y - p1.y*p2.x
 
 std::list<Sprite*> sprites;
 Amoeba *player;
@@ -23,6 +38,14 @@ int screenBottom = 0;
 clock_t currentTime;
 clock_t lastTime = clock();
 int FPS = 0;
+
+/* Flags */
+int fullscreen = FALSE;
+int stereo = FALSE;
+int showconstruct = FALSE;
+int windowdump = FALSE;
+int record = FALSE;
+int debug = FALSE;
 
 //angle of rotation
 GLfloat angle = 0.0;
@@ -49,19 +72,50 @@ GLfloat lz = 1.0;
 GLfloat lw = 0.0;
 
 
-CCamera camera;//Camera
 
+typedef struct {
+   double x,y,z;
+} XYZ;
+typedef struct {
+   double r,g,b;
+} COLOUR;
+typedef struct {
+   unsigned char r,g,b,a;
+} PIXELA;
+
+typedef struct {
+   XYZ vp; /* View position */
+   XYZ vd; /* View direction vector */
+   XYZ vu; /* View up direction */
+   XYZ pr; /* Point to rotate about */
+   double focallength; /* Focal Length along vd */
+   double aperture; /* Camera aperture */
+   double eyesep; /* Eye separation */
+   int screenwidth,screenheight;
+} CAMERA;
+
+CCamera ccamera;//Camera
+void RotateCamera(int,int,int);
+void TranslateCamera(int,int);
+void CameraHome(int);
+void Normalise(XYZ *);
+
+XYZ origin = {0.0,0.0,0.0};
+CAMERA camera;
 int numTex = 0;
+double dtheta = 1;
+double rotateangle = 0.0; /* Pulsar Rotation angle */
+double rotatespeed = 1;
 
 struct texData
 {
 	/*Image Related*/
 
-		// Data read from the header of the BMP file
+	// Data read from the header of the BMP file
 	unsigned char header[54]; // Each BMP file begins by a 54-bytes header
-	unsigned int dataPos;     // Position in the file where the actual data begins
+	unsigned int dataPos; // Position in the file where the actual data begins
 	unsigned int width, height;
-	unsigned int imageSize;   // = width*height*3
+	unsigned int imageSize; // = width*height*3
 	// Actual RGB data
 	unsigned char * data;
 
@@ -69,129 +123,227 @@ struct texData
 
 }tex[6];
 
+void GiveUsage(char *cmd)
+{
+   fprintf(stderr,"Usage: %s [-h] [-f] [-s] [-c] [-q n]\n",cmd);
+   fprintf(stderr," -h this text\n");
+   fprintf(stderr," -f full screen\n");
+   fprintf(stderr," -s stereo\n");
+   fprintf(stderr," -c show construction lines\n");
+   fprintf(stderr,"Key Strokes\n");
+   fprintf(stderr," arrow keys rotate left/right/up/down\n");
+   fprintf(stderr," left mouse rotate\n");
+   fprintf(stderr,"middle mouse roll\n");
+   fprintf(stderr," c toggle construction lines\n");
+   fprintf(stderr," i translate up\n");
+   fprintf(stderr," k translate down\n");
+   fprintf(stderr," j translate left\n");
+   fprintf(stderr," l translate right\n");
+   fprintf(stderr," [ roll clockwise\n");
+   fprintf(stderr," ] roll anti clockwise\n");
+   fprintf(stderr," q quit\n");
+   exit(-1);
+}
+
+void Normalise(XYZ *p)
+{
+   double length;
+
+   length = sqrt(p->x * p->x + p->y * p->y + p->z * p->z);
+   if (length != 0) {
+      p->x /= length;
+      p->y /= length;
+      p->z /= length;
+   } else {
+      p->x = 0;
+      p->y = 0;
+      p->z = 0;
+   }
+}
+
+XYZ CalcNormal(XYZ p,XYZ p1,XYZ p2)
+{
+   XYZ n,pa,pb;
+
+   pa.x = p1.x - p.x;
+   pa.y = p1.y - p.y;
+   pa.z = p1.z - p.z;
+   pb.x = p2.x - p.x;
+   pb.y = p2.y - p.y;
+   pb.z = p2.z - p.z;
+   Normalise(&pa);
+   Normalise(&pb);
+  
+   n.x = pa.y * pb.z - pa.z * pb.y;
+   n.y = pa.z * pb.x - pa.x * pb.z;
+   n.z = pa.x * pb.y - pa.y * pb.x;
+   Normalise(&n);
+
+   return(n);
+}
+
+/*
+Move the camera to the home position
+*/
+void CameraHome(int mode)
+{
+	camera.aperture = 50;
+	camera.focallength = 70;
+	camera.eyesep = camera.focallength / 20;
+
+	/*
+	camera.vp.x = camera.focallength;
+	camera.vp.y = 0;
+	camera.vp.z = 0;
+	camera.vd.x = -1;
+	camera.vd.y = 0;
+	camera.vd.z = 0;
+	*/
+	   /* Special camera position so the beam crosses the view */
+
+	/* camera.vp.x = 39;
+	camera.vp.y = 53;
+	camera.vp.z = 22;
+	camera.vd.x = -camera.vp.x;
+	camera.vd.y = -camera.vp.y;
+	camera.vd.z = -camera.vp.z;
+	*/
+	 // 0, 2.5f, 5, 0, 2.5f, 0, 0, 1, 0)
+	camera.vp.x = 0;
+	camera.vp.y = 2.5;
+	camera.vp.z = 5;
+	camera.vd.x = 0;
+	camera.vd.y = 0;
+	camera.vd.z = 2.5;
+
+	camera.vu.x = 0;
+	camera.vu.y = 1;
+	camera.vu.z = 0;
+
+	XYZ lookAt;
+	lookAt.x = camera.vp.x + camera.vd.x;
+	lookAt.y = camera.vp.y + camera.vd.y;
+	lookAt.z = camera.vp.z + camera.vd.z;
+	camera.pr = lookAt;
+
+}
+
 void Draw_Grid(float x, float y)
-{															
+{	
 	x = x/2;
 	y = y/2;
 
-	for(float i =  x; i <= y; i += 5)
+	for(float i = x; i <= y; i += 5)
 	{
 		glBegin(GL_LINES);
-			glColor3ub(150, 190, 150);						
-			glVertex3f(x, 0, i);					
-			glVertex3f(y, 0, i);
-			glVertex3f(i, 0,x);							
-			glVertex3f(i, 0, y);
+		glColor3ub(150, 190, 150);	
+		glVertex3f(x, 0, i);	
+		glVertex3f(y, 0, i);
+		glVertex3f(i, 0,x);	
+		glVertex3f(i, 0, y);
 		glEnd();
 	}
 }
 
 void Draw_Skybox(float x, float y, float z, float width, float height, float length)
 {
-	// Center the Skybox around the given x,y,z position
-	x = x - width  / 2;
+// Center the Skybox around the given x,y,z position
+	x = x - width / 2;
 	y = y - height / 2;
 	z = z - length / 2;
 
-
 	glEnable(GL_TEXTURE_2D);
-
 
 	// Draw Front side
 	glBindTexture(GL_TEXTURE_2D, tex[0].textureID);
 	glBegin(GL_QUADS);	
-		glNormal3d(0.0, 0.0, 1.0);
-		glTexCoord2f(1.0f, 0.0f); glVertex3f(x,		  y,		z+length);
-		glTexCoord2f(1.0f, 1.0f); glVertex3f(x,		  y+height, z+length);
-		glTexCoord2f(0.0f, 1.0f); glVertex3f(x+width, y+height, z+length); 
-		glTexCoord2f(0.0f, 0.0f); glVertex3f(x+width, y,		z+length);
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(x,	y,	z+length);
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(x,	y+height, z+length);
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(x+width, y+height, z+length);
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(x+width, y,	z+length);
 	glEnd();
 
 	// Draw Back side
 	glBindTexture(GL_TEXTURE_2D, tex[1].textureID);
-	glBegin(GL_QUADS);		
-		glNormal3d(0.0, 0.0, -1.0);
-		glTexCoord2f(1.0f, 0.0f); glVertex3f(x+width, y,		z);
-		glTexCoord2f(1.0f, 1.0f); glVertex3f(x+width, y+height, z); 
-		glTexCoord2f(0.0f, 1.0f); glVertex3f(x,		  y+height,	z);
-		glTexCoord2f(0.0f, 0.0f); glVertex3f(x,		  y,		z);
+	glBegin(GL_QUADS);	
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(x+width, y,	z);
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(x+width, y+height, z);
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(x,	y+height,	z);
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(x,	y,	z);
 	glEnd();
 
 	// Draw Left side
 	glBindTexture(GL_TEXTURE_2D, tex[2].textureID);
-	glBegin(GL_QUADS);		
-		glNormal3d(1.0, 0.0, 0.0);
-		glTexCoord2f(1.0f, 1.0f); glVertex3f(x,		  y+height,	z);	
-		glTexCoord2f(0.0f, 1.0f); glVertex3f(x,		  y+height,	z+length); 
-		glTexCoord2f(0.0f, 0.0f); glVertex3f(x,		  y,		z+length);
-		glTexCoord2f(1.0f, 0.0f); glVertex3f(x,		  y,		z);		
+	glBegin(GL_QUADS);	
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(x,	y+height,	z);	
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(x,	y+height,	z+length);
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(x,	y,	z+length);
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(x,	y,	z);	
 	glEnd();
 
 	// Draw Right side
 	glBindTexture(GL_TEXTURE_2D, tex[3].textureID);
-	glBegin(GL_QUADS);		
-		glNormal3d(-1.0, 0.0, 0.0);
-		glTexCoord2f(0.0f, 0.0f); glVertex3f(x+width, y,		z);
-		glTexCoord2f(1.0f, 0.0f); glVertex3f(x+width, y,		z+length);
-		glTexCoord2f(1.0f, 1.0f); glVertex3f(x+width, y+height,	z+length); 
-		glTexCoord2f(0.0f, 1.0f); glVertex3f(x+width, y+height,	z);
+	glBegin(GL_QUADS);	
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(x+width, y,	z);
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(x+width, y,	z+length);
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(x+width, y+height,	z+length);
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(x+width, y+height,	z);
 	glEnd();
 
 	// Draw Up side
 	glBindTexture(GL_TEXTURE_2D, tex[4].textureID);
-	glBegin(GL_QUADS);		
-		glNormal3d(0.0, -1.0, 0.0);
-		glTexCoord2f(0.0f, 0.0f); glVertex3f(x+width, y+height, z);
-		glTexCoord2f(1.0f, 0.0f); glVertex3f(x+width, y+height, z+length); 
-		glTexCoord2f(1.0f, 1.0f); glVertex3f(x,		  y+height,	z+length);
-		glTexCoord2f(0.0f, 1.0f); glVertex3f(x,		  y+height,	z);
+	glBegin(GL_QUADS);	
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(x+width, y+height, z);
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(x+width, y+height, z+length);
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(x,	y+height,	z+length);
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(x,	y+height,	z);
 	glEnd();
 
 	// Draw Down side
 	glBindTexture(GL_TEXTURE_2D, tex[5].textureID);
-	glBegin(GL_QUADS);		
-		glNormal3d(0.0, 1.0, 0.0);
-		glTexCoord2f(0.0f, 0.0f); glVertex3f(x,		  y,		z);
-		glTexCoord2f(1.0f, 0.0f); glVertex3f(x,		  y,		z+length);
-		glTexCoord2f(1.0f, 1.0f); glVertex3f(x+width, y,		z+length); 
-		glTexCoord2f(0.0f, 1.0f); glVertex3f(x+width, y,		z);
+	glBegin(GL_QUADS);	
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(x,	y,	z);
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(x,	y,	z+length);
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(x+width, y,	z+length);
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(x+width, y,	z);
 	glEnd();
 
-} 
+}
 void Lighting()
 {
   
 	GLfloat fullambient[4] = {1.0,1.0,1.0,1.0};
 	GLfloat position[4] = {lx,ly,lz,lw};
-	GLfloat ambient[4]  = {alr,alg,alb,1.0};
-	GLfloat diffuse[4]  = {dlr,dlg,dlb,1.0};
+	GLfloat ambient[4] = {alr,alg,alb,1.0};
+	GLfloat diffuse[4] = {dlr,dlg,dlb,1.0};
 	GLfloat specular[4] = {slr,slg,slb,1.0};
 
-   /* Turn off all the lights */
-   glDisable(GL_LIGHT0);
-   glDisable(GL_LIGHT1);
-   glDisable(GL_LIGHT2);
-   glDisable(GL_LIGHT3);
-   glDisable(GL_LIGHT4);
-   glDisable(GL_LIGHT5);
-   glDisable(GL_LIGHT6);
-   glDisable(GL_LIGHT7);
-   glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,GL_TRUE);
-   glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,GL_FALSE);
 
-   /* Turn on the appropriate lights */
-   glLightModelfv(GL_LIGHT_MODEL_AMBIENT,fullambient);
-   glLightfv(GL_LIGHT0,GL_POSITION,position);
-   glLightfv(GL_LIGHT0,GL_AMBIENT,ambient);
-   glLightfv(GL_LIGHT0,GL_DIFFUSE,diffuse);
-   glLightfv(GL_LIGHT0,GL_SPECULAR,specular);
-   glEnable(GL_LIGHT0);
+	/* Turn off all the lights */
+	glDisable(GL_LIGHT0);
+	glDisable(GL_LIGHT1);
+	glDisable(GL_LIGHT2);
+	glDisable(GL_LIGHT3);
+	glDisable(GL_LIGHT4);
+	glDisable(GL_LIGHT5);
+	glDisable(GL_LIGHT6);
+	glDisable(GL_LIGHT7);
+	glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,GL_TRUE);
+	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,GL_FALSE);
 
-   /* Sort out the shading algorithm */
-   glShadeModel(GL_SMOOTH);
+	/* Turn on the appropriate lights */
+	glLightModelfv(GL_LIGHT_MODEL_AMBIENT,fullambient);
+	glLightfv(GL_LIGHT0,GL_POSITION,position);
+	glLightfv(GL_LIGHT0,GL_AMBIENT,ambient);
+	glLightfv(GL_LIGHT0,GL_DIFFUSE,diffuse);
+	glLightfv(GL_LIGHT0,GL_SPECULAR,specular);
+	glEnable(GL_LIGHT0);
 
-   /* Turn lighting on */
-   glEnable(GL_LIGHTING);
+	/* Sort out the shading algorithm */
+	glShadeModel(GL_SMOOTH);
+
+	/* Turn lighting on */
+	glEnable(GL_LIGHTING);
 
 }
 
@@ -203,14 +355,14 @@ GLuint loadBMP_custom(const char * imagepath)
 	FILE *file = fopen(imagepath,"rb");
 	if (!file)
 	{
-		printf("Image could not be opened\n"); 
+		printf("Image could not be opened\n");
 		return 0;
 	}
 
 	if ( fread(tex[numTex].header, 1, 54, file)!=54 )
 	{ // If not 54 bytes read : problem
 		printf("Not a correct BMP file\n");
-	
+
 		return 0;
 	}
 
@@ -221,26 +373,26 @@ GLuint loadBMP_custom(const char * imagepath)
 	}
 
 	// Read ints from the byte array
-	tex[numTex].dataPos    = *(int*)&(tex[numTex].header[0x0A]);
-	tex[numTex].imageSize  = *(int*)&(tex[numTex].header[0x22]);
-	tex[numTex].width      = *(int*)&(tex[numTex].header[0x12]);
-	tex[numTex].height     = *(int*)&(tex[numTex].header[0x16]);
+	tex[numTex].dataPos = *(int*)&(tex[numTex].header[0x0A]);
+	tex[numTex].imageSize = *(int*)&(tex[numTex].header[0x22]);
+	tex[numTex].width = *(int*)&(tex[numTex].header[0x12]);
+	tex[numTex].height = *(int*)&(tex[numTex].header[0x16]);
 
-    // Some BMP files are misformatted, guess missing information
-	if (tex[numTex].imageSize==0) 
+		// Some BMP files are misformatted, guess missing information
+	if (tex[numTex].imageSize==0)
 	{
 		tex[numTex].imageSize=tex[numTex].width*tex[numTex].height*3;// 3 : one byte for each Red, Green and Blue component
 		puts("Missing imageSize");
 		printf("%d x %d\n", tex[numTex].width, tex[numTex].height);
 	}
-			
-	if (tex[numTex].dataPos==0)  
+
+	if (tex[numTex].dataPos==0)
 	{
 		tex[numTex].dataPos=54; // The BMP header is done that way
 		puts("Missing data pos\n");
 	}
 
-		// Create a buffer
+	// Create a buffer
 	tex[numTex].data = new unsigned char [tex[numTex].imageSize];
  
 
@@ -250,15 +402,15 @@ GLuint loadBMP_custom(const char * imagepath)
 	//Everything is in memory now, the file can be closed
 	fclose(file);
 
-	
+
 	glGenTextures(1, &(tex[numTex].textureID) );
  
 
 	glBindTexture(GL_TEXTURE_2D, tex[numTex].textureID);
 
-	
+
 	glTexImage2D(GL_TEXTURE_2D, 0,GL_RGB, tex[numTex].width, tex[numTex].height, 0, GL_BGR_EXT, GL_UNSIGNED_BYTE, tex[numTex].data);
-	
+
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
@@ -267,41 +419,208 @@ GLuint loadBMP_custom(const char * imagepath)
 
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	
-	
+
+
 
 	numTex++;
-} 
+	return 1;
+}
 
-void init ( GLvoid )   
+
+/*
+Translate (pan) the camera view point
+In response to i,j,k,l keys
+Also move the camera rotate location in parallel
+*/
+/*
+Rotate (ix,iy) or roll (iz) the camera about the focal point
+ix,iy,iz are flags, 0 do nothing, +- 1 rotates in opposite directions
+Correctly updating all camera attributes
+*/
+void RotateCamera(int ix,int iy,int iz)
 {
-	player = new Amoeba(0, 0, 25,1, true);
+	XYZ vp,vu,vd;
+	XYZ right;
+	XYZ newvp,newr;
+	double radius,dd,radians;
+	double dx,dy,dz;
+
+	vu = camera.vu;
+	Normalise(&vu);
+	vp = camera.vp;
+	vd = camera.vd;
+	Normalise(&vd);
+	CROSSPROD(vd,vu,right);
+	Normalise(&right);
+	radians = dtheta * PI / 180.0;
+
+	/* Handle the roll */
+	if (iz != 0) {
+		camera.vu.x += iz * right.x * radians;
+		camera.vu.y += iz * right.y * radians;
+		camera.vu.z += iz * right.z * radians;
+		Normalise(&camera.vu);
+		return;
+	}
+
+	/* Distance from the rotate point */
+	dx = camera.vp.x - camera.pr.x;
+	dy = camera.vp.y - camera.pr.y;
+	dz = camera.vp.z - camera.pr.z;
+	radius = sqrt(dx*dx + dy*dy + dz*dz);
+
+	/* Determine the new view point */
+	dd = radius * radians;
+	newvp.x = vp.x + dd * ix * right.x + dd * iy * vu.x - camera.pr.x;
+	newvp.y = vp.y + dd * ix * right.y + dd * iy * vu.y - camera.pr.y;
+	newvp.z = vp.z + dd * ix * right.z + dd * iy * vu.z - camera.pr.z;
+	Normalise(&newvp);
+	camera.vp.x = camera.pr.x + radius * newvp.x;
+	camera.vp.y = camera.pr.y + radius * newvp.y;
+	camera.vp.z = camera.pr.z + radius * newvp.z;
+
+	/* Determine the new right vector */
+	newr.x = camera.vp.x + right.x - camera.pr.x;
+	newr.y = camera.vp.y + right.y - camera.pr.y;
+	newr.z = camera.vp.z + right.z - camera.pr.z;
+	Normalise(&newr);
+	newr.x = camera.pr.x + radius * newr.x - camera.vp.x;
+	newr.y = camera.pr.y + radius * newr.y - camera.vp.y;
+	newr.z = camera.pr.z + radius * newr.z - camera.vp.z;
+
+	camera.vd.x = camera.pr.x - camera.vp.x;
+	camera.vd.y = camera.pr.y - camera.vp.y;
+	camera.vd.z = camera.pr.z - camera.vp.z;
+	Normalise(&camera.vd);
+
+	/* Determine the new up vector */
+	CROSSPROD(newr,camera.vd,camera.vu);
+	Normalise(&camera.vu);
+
+	if (debug)
+		fprintf(stderr,"Camera position: (%g,%g,%g)\n",
+			camera.vp.x,camera.vp.y,camera.vp.z);
+}
+
+void TranslateCamera(int ix,int iy)
+{
+	XYZ vp,vu,vd;
+	XYZ right;
+	XYZ newvp,newr;
+	double radians,delta;
+
+	vu = camera.vu;
+	Normalise(&vu);
+	vp = camera.vp;
+	vd = camera.vd;
+	Normalise(&vd);
+	CROSSPROD(vd,vu,right);
+	Normalise(&right);
+	radians = dtheta * PI / 180.0;
+	delta = dtheta * camera.focallength / 90.0;
+
+	camera.vp.x += iy * vu.x * delta;
+	camera.vp.y += iy * vu.y * delta;
+	camera.vp.z += iy * vu.z * delta;
+	camera.pr.x += iy * vu.x * delta;
+	camera.pr.y += iy * vu.y * delta;
+	camera.pr.z += iy * vu.z * delta;
+
+	camera.vp.x += ix * right.x * delta;
+	camera.vp.y += ix * right.y * delta;
+	camera.vp.z += ix * right.z * delta;
+	camera.pr.x += ix * right.x * delta;
+	camera.pr.y += ix * right.y * delta;
+	camera.pr.z += ix * right.z * delta;
+}
+
+void init ( GLvoid )
+{
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_LINE_SMOOTH);
+	glDisable(GL_POINT_SMOOTH);
+	glEnable(GL_POLYGON_SMOOTH);
+	glShadeModel(GL_SMOOTH);
+	glDisable(GL_DITHER);
+	glDisable(GL_CULL_FACE);
+
+	player = new Amoeba(-50, -25, 25,1, true);
 	//ai = new AI(60,60 , 50,1, player, true);
 	sprites.push_back( (Sprite*) (player) );
-	//sprites.push_back( (Sprite*) (  ai  ) );
+	//sprites.push_back( (Sprite*) ( ai ) );
 	//sprites.push_back( (Sprite*)(new Obstacle()) );
-	glShadeModel(GL_SMOOTH);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glEnable ( GL_COLOR_MATERIAL );
-	glClearDepth(1.0f);
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LEQUAL);
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+	glLineWidth(1.0);
+	glPointSize(1.0);
+
+	glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
+	glFrontFace(GL_CW);
+	glClearColor(0.0,0.0,0.0,0.0); /* Background colour */
 	glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
 	glEnable(GL_COLOR_MATERIAL);
+	glPixelStorei(GL_UNPACK_ALIGNMENT,1);
 
-	glEnable(GL_TEXTURE_2D);
-	
+	//glEnable(GL_TEXTURE_2D);
 
-	camera.Position_Camera(0, 2.5f, 5,	0, 2.5f, 0,   0, 1, 0);
+
+	ccamera.Position_Camera(0, 2.5f, 5,	0, 2.5f, 0, 0, 1, 0);
 
 }
 
-void display ( void )   
+static double amoebaVertices[5][24000][4];
+static double AmoebaNormals[5][24000][4];
+int numSprites;
+int nVertices[10];
+
+/*
+Create the geometry for the pulsar
+*/
+void MakeGeometry(void)
 {
-	static double amoebaVertices[5][24000][4];
-	static double AmoebaNormals[5][24000][4];
-	int nVertices[10];
+	GLfloat specular[4] = {1.0,1.0,1.0,1.0};
+	GLfloat shiny[1] = {5.0};
+ 
+	glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,specular);
+	glMaterialfv(GL_FRONT_AND_BACK,GL_SHININESS,shiny);
+
+	Draw_Skybox(0,0,0,100,100,100);
+	glColor4f(0.0,0.0,1.0,1.0);
+	Draw_Grid(-100,100);
+
+
+	glBegin(GL_TRIANGLES);
+	for( int j = 0; j < numSprites; j++){
+		for( int i = 0; i < nVertices[j]; i++){
+			glVertex4d( amoebaVertices[j][i][0], amoebaVertices[j][i][1], amoebaVertices[j][i][2], amoebaVertices[j][i][3]);
+			glNormal3d( AmoebaNormals[j][i][0], AmoebaNormals[j][i][1], AmoebaNormals[j][i][2]);
+		}
+	}
+	glEnd();
+
+
+}
+
+void display ( void )
+{
+	numSprites = 0;
+
+	for( std::list<Sprite*>::iterator it = sprites.begin(); it != sprites.end(); it++)
+	{
+
+		for( std::list<Sprite*>::iterator it2 = sprites.begin(); it2 != sprites.end(); it2++)
+		{
+
+			if(it != it2)
+			{
+				//(*it)->collision(*it2);
+			}
+		}
+
+
+		nVertices[numSprites] = (*it)->draw(amoebaVertices[numSprites], AmoebaNormals[numSprites]);
+		numSprites++;	
+		//(*it)->update();
+	}
+
 	/*
 	FPS++;
 	currentTime = clock();
@@ -311,60 +630,90 @@ void display ( void )
 		FPS = 0;
 	}*/
 
-	GLfloat specular[4] = {1.0,1.0,1.0,1.0};
-	GLfloat shiny[1] = {5.0};
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);	
-	
-	
-	glLoadIdentity();	
-
-	Lighting();
-	gluLookAt(camera.mPos.x,  camera.mPos.y,  camera.mPos.z, camera.mView.x, camera.mView.y, camera.mView.z, camera.mUp.x,   camera.mUp.y,   camera.mUp.z);
-	
-	glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,specular);
-	glMaterialfv(GL_FRONT_AND_BACK,GL_SHININESS,shiny);
-
-	Draw_Skybox(0,0,0,100,100,100);
-	glColor4f(0.0,0.0,1.0,1.0);
-	Draw_Grid(-100,100);
-
-	
-	//glLoadIdentity();									// Reset The Current Modelview Matrix
-	//glTranslatef(0.0f,0.0f,-10.0f);						// Move Left 1.5 Units And Into The Screen 6.0
-
-	/*	glBegin(GL_TRIANGLES);
-
-	glVertex3d(0.0,0.0,-10.0);
-	glVertex3d(5.0,0.0,-10.0);
-	glVertex3d(0.0,5.0,-10.0);
-	glEnd();*/
-
-	int numSprites = 0;
-	for( std::list<Sprite*>::iterator it = sprites.begin(); it != sprites.end(); it++)
+	if (stereo)
 	{
+		double dist,ratio,radians,scale,wd2,ndfl;
+		double left,right,top,bottom,near1=0.1,far1=10000;
 
-		for( std::list<Sprite*>::iterator it2 = sprites.begin(); it2 != sprites.end(); it2++)
-		{
-			
-			if(it != it2)
-			{
-				//(*it)->collision(*it2);
-			}
-		}
+		near1 = camera.focallength / 5;
 
-		nVertices[numSprites] = (*it)->draw(amoebaVertices[numSprites], AmoebaNormals[numSprites]);
-		numSprites++;		
-		//(*it)->update();
-	}
-	glBegin(GL_TRIANGLES);
-	for( int j = 0; j < numSprites; j++){
-		for( int i = 0; i < nVertices[j]; i++){
-			glVertex4d( amoebaVertices[j][i][0], amoebaVertices[j][i][1], amoebaVertices[j][i][2], amoebaVertices[j][i][3]); 
-			glNormal3d( AmoebaNormals[j][i][0], AmoebaNormals[j][i][1], AmoebaNormals[j][i][2]);
-		}
-	}
-	glEnd();
+		/* Misc stuff */
+		ratio = camera.screenwidth / (double)camera.screenheight;
+		radians = DTOR * camera.aperture / 2;
+		wd2 = near1 * tan(radians);
+		ndfl = near1 / camera.focallength;
+
+   
+		XYZ r;
+
+
+
+
+		/* Derive the two eye positions */
+		CROSSPROD(camera.vd,camera.vu,r);
+		Normalise(&r);
+		r.x *= camera.eyesep / 2.0;
+		r.y *= camera.eyesep / 2.0;
+		r.z *= camera.eyesep / 2.0;
+
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		left = - ratio * wd2 - 0.5 * camera.eyesep * ndfl;
+		right = ratio * wd2 - 0.5 * camera.eyesep * ndfl;
+		top = wd2;
+		bottom = - wd2;
+		glFrustum(left,right,bottom,top,near1,far1);
+
+		glMatrixMode(GL_MODELVIEW);
+		glDrawBuffer(GL_BACK_RIGHT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glLoadIdentity();
+		gluLookAt(camera.vp.x + r.x,camera.vp.y + r.y,camera.vp.z + r.z,
+				camera.vp.x + r.x + camera.vd.x,
+				camera.vp.y + r.y + camera.vd.y,
+				camera.vp.z + r.z + camera.vd.z,
+				camera.vu.x,camera.vu.y,camera.vu.z);
+		Lighting();
+		MakeGeometry();
+
+		glMatrixMode(GL_PROJECTION);
+		glLoadIdentity();
+		left = - ratio * wd2 + 0.5 * camera.eyesep * ndfl;
+		right = ratio * wd2 + 0.5 * camera.eyesep * ndfl;
+		top = wd2;
+		bottom = - wd2;
+		glFrustum(left,right,bottom,top,near1,far1);
+
+		glMatrixMode(GL_MODELVIEW);
+		glDrawBuffer(GL_BACK_LEFT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glLoadIdentity();
+		gluLookAt(camera.vp.x - r.x,camera.vp.y - r.y,camera.vp.z - r.z,
+				camera.vp.x - r.x + camera.vd.x,
+				camera.vp.y - r.y + camera.vd.y,
+				camera.vp.z - r.z + camera.vd.z,
+				camera.vu.x,camera.vu.y,camera.vu.z);
+		Lighting();
+		MakeGeometry();
+
+   }
+   else
+   {
+		glLoadIdentity();
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glLoadIdentity();
+		gluLookAt(ccamera.mPos.x, ccamera.mPos.y, ccamera.mPos.z, ccamera.mView.x, ccamera.mView.y, ccamera.mView.z, ccamera.mUp.x, ccamera.mUp.y, ccamera.mUp.z);
+		Lighting();
+		MakeGeometry();
+   }
+
+
+
+
+	rotateangle += rotatespeed;
+
+
+
 
 	glutSwapBuffers ( );
 	glutPostRedisplay();
@@ -372,9 +721,9 @@ void display ( void )
 
 void reshape ( int w, int h )
 {
-	if (h==0)										
+	if (h==0)	
 	{
-		h=1;										
+		h=1;	
 	}
 
 	glViewport(0,0,w,h);
@@ -390,78 +739,213 @@ void reshape ( int w, int h )
 
 void mouse(int btn, int state, int x, int y)
 {
-    if(btn==GLUT_LEFT_BUTTON && state==GLUT_DOWN)
-    {
+	if(btn==GLUT_LEFT_BUTTON && state==GLUT_DOWN)
+	{
 		player->setLeftMousePos(x,screenTop -y);
 		player->extendAttackArm();
-    }
+	}
 
-    if(btn==GLUT_RIGHT_BUTTON && state==GLUT_DOWN)
-    {
+	if(btn==GLUT_RIGHT_BUTTON && state==GLUT_DOWN)
+	{
 		player->setRightMousePos(x, screenTop - y);
 		player->extendDefendArm();
-    }
+	}
 }
 
-void HandleMainMenu(int){}
-void HandleSpeedMenu(int){}
-void HandleSpinMenu(int){}
+void HandleMainMenu(int row)
+{
 
+   switch (row)
+   {
+	   case 9:
+		  exit(0);
+		  break;
+   }
+}
+
+void HandleAmbientLight(int row)
+{
+	switch (row)
+	{
+		case 1:
+		alr += 0.1;
+		break;
+
+		case 2:
+		alg += 0.1;
+		break;
+
+		case 3:
+		alb += 0.1;
+		break;
+
+		case 4:
+		alr -= 0.1;
+		break;
+
+		case 5:
+		alg -= 0.1;
+		break;
+
+		case 6:
+		alb -= 0.1;
+		break;
+	}
+
+}
+
+void HandleDiffuseLight(int row)
+{
+	switch (row)
+	{
+		case 1:
+			dlr += 0.1;
+			break;
+
+		case 2:
+			dlg += 0.1;
+			break;
+
+		case 3:
+			dlb += 0.1;
+			break;
+
+		case 4:
+			dlr -= 0.1;
+			break;
+
+		case 5:
+			dlg -= 0.1;
+			break;
+
+		case 6:
+			dlb -= 0.1;
+			break;
+	}
+}
+
+
+void HandleSpecularLight(int row)
+{
+	switch (row)
+	{
+		case 1:
+		slr += 0.1;
+		break;
+
+		case 2:
+		slg += 0.1;
+		break;
+
+		case 3:
+		slb += 0.1;
+		break;
+
+		case 4:
+		slr -= 0.1;
+		break;
+
+		case 5:
+		slg -= 0.1;
+		break;
+
+		case 6:
+		slb -= 0.1;
+		break;
+	}
+}
+
+void HandleLightMenu(int row)
+{
+
+}
 
 void keyboard ( unsigned char key, int x, int y )
 {
-	switch ( key ) 
+	if( stereo){
+		switch(key){
+			case 'H':
+				CameraHome(0);
+				break;
+			case '[': /* Roll anti clockwise */
+				RotateCamera(0,-1,0);
+				break;
+			case ']': /* Roll clockwise */
+				RotateCamera(0,1,0);
+				break;
+			case 'q': /* Roll anti clockwise */
+				RotateCamera(-1,0,0);
+				break;
+			case 'e': /* Roll clockwise */
+				RotateCamera(1,0,0);
+				break;
+
+			case 'w': /* Translate camera up */
+			case 'W':
+				TranslateCamera(0,1);
+				break;
+			case 's': /* Translate camera down */
+			case 'S':
+				TranslateCamera(0,-1);
+				break;
+			case 'a': /* Translate camera left */
+			case 'A':
+				TranslateCamera(-1,0);
+				break;
+			case 'd': /* Translate camera right */
+			case 'D':
+				TranslateCamera(1,0);
+				break;
+
+			case '1':
+				camera.eyesep+=0.1;
+				break;
+			case '2':
+				camera.eyesep-=0.1;
+				break;
+		}
+	}else{
+		switch(key){
+			case('w'):
+				ccamera.Move_Camera(CAMERASPEED);
+				break;
+
+			case('s'):
+				ccamera.Move_Camera(-CAMERASPEED);
+				break;
+			case('a'):
+				ccamera.Rotate_View(0,-CAMERASPEED, 0);
+				break;
+
+			case('d'):
+				ccamera.Rotate_View(0, CAMERASPEED, 0);
+				break;
+
+			case('e'):
+				ccamera.Fly(CAMERASPEED);
+				break;
+
+			case('q'):
+				ccamera.Fly(-CAMERASPEED);
+				break;
+
+			case('r'):
+				ccamera.Look(CAMERASPEED);
+				break;
+
+			case(' ')://tab
+				ccamera.Look(-CAMERASPEED);
+				break;
+		}
+	}
+	switch ( key )
 	{
 		case(27):
 			exit(0);
 			break;
-		
-		case('<'):
-			player->extendAttackArm();
-			break;
-
-		case('>'):
-			player->retractArm();
-			break;
-
-		case('w'):
-			camera.Move_Camera(CAMERASPEED);
-			break;
-
-		case('s'):
-			camera.Move_Camera(-CAMERASPEED);
-			break;
-		case('a'):
-			camera.Rotate_View(0,-CAMERASPEED, 0);
-			break;
-
-		case('d'):
-			camera.Rotate_View(0, CAMERASPEED, 0);
-			break;
-
-		case('e'):
-			camera.Fly(CAMERASPEED);
-			break;
-
-		case('q'):
-			camera.Fly(-CAMERASPEED);
-			break;
-
-		case('r'):
-			camera.Look(CAMERASPEED);
-			break;
-
-		case('	')://tab
-			camera.Look(-CAMERASPEED);
-			break;
-		
-		
-
-
 		case(' '):
 			player->setVelocity(0,0);
 			break;
-
 		default:
 			break;
 	}
@@ -476,46 +960,69 @@ void arrow_keys ( int a_keys, int x, int y )
 	switch ( a_keys ) {
 		case GLUT_KEY_UP:
 			if( moves[0] )
-				player->setVely( 5.0f);
+			player->setVely( 5.0f);
 			break;
 		case GLUT_KEY_DOWN:
 			if( moves[1] )
-				player->setVely( -5.0f);
+			player->setVely( -5.0f);
 			break;
 		case GLUT_KEY_LEFT:
 			if( moves[2] )
-				player->setVelx(-5.0f);
+			player->setVelx(-5.0f);
 			break;
 		case GLUT_KEY_RIGHT:
 			if( moves[3] )
-				player->setVelx(5.0f);
+			player->setVelx(5.0f);
 			break;
 		default:
 			break;
-	}
+}
 
 }
 
 int main ( int argc, char** argv )
 {
-	 int mainmenu,speedmenu,spinmenu;
 
-	glutInit( &argc, argv );
-	init();
-	glutInitDisplayMode( GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
-	glutInitWindowSize( 500, 500 ); 
-	glutInitWindowPosition (100, 100); //set the position of the window
-	glutCreateWindow( "Amoeba Boxing" );
-	//glutGameModeString("800x600:16@60");
-	//glutEnterGameMode();
-	glutDisplayFunc( display );
-	glutReshapeFunc( reshape );
+	int i;
+
+	camera.screenwidth = 400;
+	camera.screenheight = 300;
+
+	/* Parse the command line arguments */
+	for (i=1;i<argc;i++) {
+		if (strstr(argv[i],"-h") != NULL)
+			GiveUsage(argv[0]);
+		if (strstr(argv[i],"-f") != NULL)
+			fullscreen = TRUE;
+		if (strstr(argv[i],"-s") != NULL)
+			stereo = TRUE;
+		if (strstr(argv[i],"-d") != NULL)
+			debug = TRUE;
+		if (strstr(argv[i],"-c") != NULL)
+			showconstruct = TRUE;
+	}
+
+	/* Set things up and go */
+	glutInit(&argc,argv);
+	if (!stereo)
+		glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+	else
+		glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_STEREO);
+
+	glutCreateWindow("Amoeba Boxing");
+	glutReshapeWindow(1024,1024);
+	if (fullscreen)
+		glutFullScreen();
+	glutDisplayFunc(display);
+	glutReshapeFunc(reshape);
+	glutKeyboardFunc(keyboard);
+	glutSpecialFunc(arrow_keys);
 	glutMouseFunc(mouse);
-	glutKeyboardFunc( keyboard );
-	glutSpecialFunc( arrow_keys );
+	init();
+	CameraHome(0);
 
 	loadBMP_custom("cubemap1.bmp");
-    loadBMP_custom("cubemap2.bmp");
+	loadBMP_custom("cubemap2.bmp");
 	loadBMP_custom("cubemap3.bmp");
 	loadBMP_custom("cubemap4.bmp");
 	loadBMP_custom("cubemap5.bmp");
@@ -524,31 +1031,50 @@ int main ( int argc, char** argv )
 	for(int i = 0; i<numTex; i++)
 		printf("%d\n", tex[i].textureID);
 
+	/*
 
-	/* Set up the speed menu */
-   speedmenu = glutCreateMenu(HandleSpeedMenu);
-   glutAddMenuEntry("Stop",1);
-   glutAddMenuEntry("Slow",2);
-   glutAddMenuEntry("Medium",3);
-   glutAddMenuEntry("Fast",4);
-   glutAddMenuEntry("Very fast",5);
+	/* Set up the main menu */
+  
+	int AmbientLightMenu, DiffuseLightMenu, SpecularLightMenu, LightMenu, mainmenu;
 
-   /* Set up the spin menu */
-   spinmenu = glutCreateMenu(HandleSpinMenu);
-   glutAddMenuEntry("1 degree",1);
-   glutAddMenuEntry("2 degrees",2);
-   glutAddMenuEntry("3 degrees",3);
-   glutAddMenuEntry("5 degrees",4);
+	AmbientLightMenu = glutCreateMenu(HandleAmbientLight);
+	glutAddMenuEntry("Increase Ambient Red",1);
+	glutAddMenuEntry("Increase Ambient Green",2);
+	glutAddMenuEntry("Increase Ambient Blue",3);
+	glutAddMenuEntry("Decrease Ambient Red",4);
+	glutAddMenuEntry("Decrease Ambient Green",5);
+	glutAddMenuEntry("Decrease Ambient Blue",6);
 
-   /* Set up the main menu */
-   mainmenu = glutCreateMenu(HandleMainMenu);
-   glutAddSubMenu("Rotation",speedmenu);
-   glutAddSubMenu("Camera rotation steps",spinmenu);
-   glutAddMenuEntry("Toggle construction lines",1);
-   glutAddMenuEntry("Quit",9);
-   glutAttachMenu(GLUT_RIGHT_BUTTON);
+	DiffuseLightMenu = glutCreateMenu(HandleDiffuseLight);
+	glutAddMenuEntry("Increase Diffuse Red",1);
+	glutAddMenuEntry("Increase Diffuse Green",2);
+	glutAddMenuEntry("Increase Diffuse Blue",3);
+	glutAddMenuEntry("Decrease Diffuse Red",4);
+	glutAddMenuEntry("Decrease Diffuse Green",5);
+	glutAddMenuEntry("Decrease Diffuse Blue",6);
+
+	SpecularLightMenu = glutCreateMenu(HandleSpecularLight);
+	glutAddMenuEntry("Increase Specular Red",1);
+	glutAddMenuEntry("Increase Specular Green",2);
+	glutAddMenuEntry("Increase Specular Blue",3);
+	glutAddMenuEntry("Decrease Specular Red",4);
+	glutAddMenuEntry("Decrease Specular Green",5);
+	glutAddMenuEntry("Decrease Specular Blue",6);
+
+	LightMenu = glutCreateMenu(HandleLightMenu);
+	glutAddSubMenu("Ambient",AmbientLightMenu);
+	glutAddSubMenu("Diffuse",DiffuseLightMenu);
+	glutAddSubMenu("Specular",SpecularLightMenu);
+
+
+	mainmenu = glutCreateMenu(HandleMainMenu);
+	glutAddSubMenu("Lighting",LightMenu);
+	glutAddMenuEntry("Quit",9);
+	glutAttachMenu(GLUT_RIGHT_BUTTON);
 
 	glutMainLoop();
 
 	return 0;
 }
+
+

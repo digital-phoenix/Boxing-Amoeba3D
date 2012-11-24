@@ -12,7 +12,7 @@ public:
 		gooey = 1.0;
 		this->px = px;
 		this->py = py;
-		this->pz = -100;
+		this->pz = 0;//-100;
 		this->radius = radius;
 		radiusSquared = radius * radius;
 	}
