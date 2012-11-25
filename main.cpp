@@ -621,14 +621,14 @@ void display ( void )
 		//(*it)->update();
 	}
 
-	/*
+	
 	FPS++;
 	currentTime = clock();
 	if( currentTime - lastTime >= CLOCKS_PER_SEC){
-		//printf("FPS = %d\n", FPS);
+		printf("FPS = %d\n", FPS);
 		lastTime = currentTime;
 		FPS = 0;
-	}*/
+	}
 
 	if (stereo)
 	{

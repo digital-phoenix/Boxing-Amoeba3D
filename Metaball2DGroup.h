@@ -249,128 +249,142 @@ public:
 		}
 	}
 
-	int calcCorners( double x, double y, double z, std::vector<MetaballDrawData> ballData){
+	int calcCorners( int x, int y, int z, double cornerVertices[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][4]){
 		int lookup = 0;
 		// 7 -- x, y, z
-		if (calculatePoint(x,y,z, ballData) >= THRESHOLD) lookup |= 128;
+		if (cornerVertices[x][y][z][3] >= THRESHOLD) lookup |= 128;
 		// 6 -- (x + 1), y,  z
-		if (calculatePoint(x + gridSize,y,z, ballData) >= THRESHOLD) lookup |= 64;
+		if ( cornerVertices[x + 1][y][z][3] >= THRESHOLD) lookup |= 64;
 		// 2 -- (x + 1), (y + 1), z
-		if (calculatePoint(x + gridSize,y + gridSize,z, ballData) >= THRESHOLD) lookup |= 4;
+		if (cornerVertices[x + 1][y + 1][z][3]  >= THRESHOLD) lookup |= 4;
 		// 3 -- x, (y + 1), z
-		if (calculatePoint(x,y + gridSize,z, ballData) >= THRESHOLD) lookup |= 8;
+		if (cornerVertices[x][y + 1][z][3]  >= THRESHOLD) lookup |= 8;
 		// 4 -- x, y, (z + 1)
-		if (calculatePoint(x,y,z + gridSize, ballData) >= THRESHOLD) lookup |= 16;
+		if (cornerVertices[x][y][z + 1][3] >= THRESHOLD) lookup |= 16;
 		// 5 -- (x + 1), y, (z + 1)
-		if (calculatePoint(x + gridSize,y,z + gridSize, ballData) >= THRESHOLD) lookup |= 32;
+		if (cornerVertices[x + 1][y][z + 1][3]  >= THRESHOLD) lookup |= 32;
 		// 1 -- (x + 1), (y + 1), (z + 1) 
-		if (calculatePoint(x + gridSize,y + gridSize,z + gridSize, ballData) >= THRESHOLD) lookup |= 2;
+		if (cornerVertices[x + 1][y + 1][z + 1][3]  >= THRESHOLD) lookup |= 2;
 		// 0 -- x + (y + 1), (z + 1)
-		if (calculatePoint(x,y + gridSize,z + gridSize, ballData) >= THRESHOLD) lookup |= 1;
+		if (cornerVertices[x][y + 1][z + 1][3]  >= THRESHOLD) lookup |= 1;
+
 		return lookup;
 	}
 	
-	void interpolatePoint( double vertex[3], double in[3], double out[3], int depth, std::vector<MetaballDrawData> &ballData){
-		if( depth < 0)
-			return;
-		for( int i =0; i < 3; i++)
-			vertex[i] = in[i] + (out[i] - in[i])/ 2;
-		double temp = calculatePoint( vertex[0], vertex[1], vertex[2], ballData);
-		if( temp == THRESHOLD){
-			return;
-		}else if( temp < THRESHOLD){
-			interpolatePoint(vertex, in, vertex, depth - 1, ballData);
-		}else{
-			interpolatePoint(vertex, vertex, out, depth - 1, ballData);
-		}
+	void interpolatePoint( double vertex[3], double vertexNormal[3], int vertex0[3], int vertex1[3], int depth, double cornerVertices[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][4], double cornerNormals[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][3]){
+		double diff;
+
+
+		diff = (THRESHOLD - cornerVertices[vertex0[0]][vertex0[1]][vertex0[2]][3]) / (cornerVertices[vertex1[0]][vertex1[1]][vertex1[2]][3] - cornerVertices[vertex0[0]][vertex0[1]][vertex0[2]][3]);
+
+		double x1 = cornerVertices[vertex0[0]][vertex0[1]][vertex0[2]][0];
+		double y1 = cornerVertices[vertex0[0]][vertex0[1]][vertex0[2]][1];
+		double z1 = cornerVertices[vertex0[0]][vertex0[1]][vertex0[2]][2];
+		double x2 = cornerVertices[vertex1[0]][vertex1[1]][vertex1[2]][0];
+		double y2 = cornerVertices[vertex1[0]][vertex1[1]][vertex1[2]][1];
+		double z2 = cornerVertices[vertex1[0]][vertex1[1]][vertex1[2]][2];
+
+		vertex[0] = x1 + (x2 - x1) * diff;
+		vertex[1] = y1 + (y2 - y1) * diff;
+		vertex[2] = z1 + (z2 - z1) * diff;
+
+		double nx1 = cornerNormals[vertex0[0]][vertex0[1]][vertex0[2]][0];
+		double ny1 = cornerNormals[vertex0[0]][vertex0[1]][vertex0[2]][1];
+		double nz1 = cornerNormals[vertex0[0]][vertex0[1]][vertex0[2]][2];
+		double nx2 = cornerNormals[vertex1[0]][vertex1[1]][vertex1[2]][0];
+		double ny2 = cornerNormals[vertex1[0]][vertex1[1]][vertex1[2]][1];
+		double nz2 = cornerNormals[vertex1[0]][vertex1[1]][vertex1[2]][2];
+
+		vertexNormal[0]= nx1 + (nx2 - nx1) * diff;
+		vertexNormal[1]= ny1 + (ny2 - ny1) * diff;
+		vertexNormal[2] = nz1 + (nz2 - nz1) * diff;
 	}
 
-	void interpolatePoint( double vertex[3], double ex1, double ey1, double ez1, double ex2, double ey2, double ez2, int depth, std::vector<MetaballDrawData> &ballData){
-		double edge1[] = {ex1, ey1, ez1};
-		double edge2[] = {ex2, ey2, ez2};
-
-		if( calculatePoint(ex1, ey1, ez1, ballData) >= THRESHOLD){
-			interpolatePoint(vertex, edge1, edge2, depth, ballData);
-		}else{
-			interpolatePoint(vertex, edge2, edge1, depth, ballData);
-		}
+	void interpolatePoint( double vertex[3], double normal[3], int ex1, int ey1, int ez1, int ex2, int ey2, int ez2, int depth, double cornerVertices[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][4], double cornerNormals[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][3]){
+		int edge1[] = {ex1, ey1, ez1};
+		int edge2[] = {ex2, ey2, ez2};
+		interpolatePoint(vertex, normal, edge1, edge2, depth, cornerVertices, cornerNormals);
 	}
 
-	void calcVertexes( double vertexes[16][3], double x, double y, double z, std::vector<MetaballDrawData> &ballData){
+	void calcVertexes( double vertexes[16][3], double normals[16][3], int x, int y, int z, double cornerVertices[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][4], double cornerNormals[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][3]){
 		// 0 - 1
 		// x, (y + 1), (z + 1)
 		// (x + 1),(y + 1), (z + 1)
-		interpolatePoint(	vertexes[0], x, y + gridSize, z + gridSize,
-			x + gridSize, y + gridSize, z + gridSize, 5, ballData);
+		interpolatePoint(	vertexes[0], normals[0], x, y + 1, z + 1,
+			x + 1, y + 1, z + 1, 5, cornerVertices, cornerNormals);
 
 		// 1 - 2
 		// (x + 1), (y + 1), (z + 1) 
 		// (x + 1), (y + 1), z
-		interpolatePoint( vertexes[1],	x + gridSize, y + gridSize, z + gridSize,
-							x + gridSize, y +gridSize, z, 5, ballData);
+		interpolatePoint( vertexes[1], normals[1],	x + 1, y + 1, z + 1,
+							x + 1, y +1, z, 5, cornerVertices, cornerNormals);
 
 		// 2 - 3
 		// (x + 1), (y + 1), z 
 		// x, (y + 1), z 
-		interpolatePoint(vertexes[2],	x + gridSize, y + gridSize, z,
-							x, y + gridSize, z, 5, ballData);
+		interpolatePoint(vertexes[2], normals[2], x + 1, y + 1, z,
+							x, y + 1, z, 5, cornerVertices, cornerNormals);
 
 		// 3 - 0
 		// x, (y + 1), z
 		// x, (y + 1), (z + 1) 
-		interpolatePoint(	vertexes[3], x, y + gridSize, z,
-							x, y  + gridSize, z + gridSize, 5, ballData);
+		interpolatePoint(	vertexes[3], normals[3], x, y + 1, z,
+							x, y  + 1, z + 1, 5, cornerVertices, cornerNormals);
 			
 		// 4 - 5
 		// x, y, (z + 1) 
 		// (x + 1), y, (z + 1) 
-		interpolatePoint(	vertexes[4], x, y, z +gridSize,
-							x + gridSize, y, z +gridSize, 5, ballData);
+		interpolatePoint(	vertexes[4], normals[4], x, y, z +1,
+							x + 1, y, z +1, 5, cornerVertices, cornerNormals);
 		// 5 - 6
 		// (x + 1), y, (z + 1)
 		// (x + 1), y, z
-		interpolatePoint( vertexes[5],	x + gridSize, y, z + gridSize,
-							x + gridSize, y, z, 5, ballData);
+		interpolatePoint( vertexes[5], normals[5],	x + 1, y, z + 1,
+							x + 1, y, z, 5, cornerVertices, cornerNormals);
 
 		// 6 - 7
 		// (x + 1), y, z 
 		// x , y, z
-		interpolatePoint( vertexes[6],	x + gridSize, y, z,
-							x, y, z, 5, ballData);
+		interpolatePoint( vertexes[6], normals[6],	x + 1, y, z,
+							x, y, z, 5, cornerVertices, cornerNormals);
 
 		// 7 - 4
 		// x, y, z
 		// x, y, (z + 1)
-		interpolatePoint( vertexes[7],	x, y, z,
-							x, y, z + gridSize, 5, ballData);
+		interpolatePoint( vertexes[7], normals[7],	x, y, z,
+							x, y, z + 1, 5, cornerVertices, cornerNormals);
 
 		// 0 - 4
 		// x, (y + 1), (z + 1)
 		// x, y, (z + 1)
-		interpolatePoint(	vertexes[8], x, y + gridSize, z + gridSize,
-							x, y, z + gridSize, 5, ballData);
+		interpolatePoint(	vertexes[8], normals[8], x, y + 1, z + 1,
+							x, y, z + 1, 5, cornerVertices, cornerNormals);
 
 		// 1 - 5
 		// (x + 1), (y + 1), (z + 1)
 		// (x + 1), y, (z + 1)
-		interpolatePoint(vertexes[9], x + gridSize, y + gridSize, z + gridSize,
-							x + gridSize, y, z + gridSize, 5, ballData);
+		interpolatePoint(vertexes[9], normals[9], x + 1, y + 1, z + 1,
+							x + 1, y, z + 1, 5, cornerVertices, cornerNormals);
 
 		// 2 - 6
 		// (x + 1), (y + 1), z
 		// (x + 1), y, z
-		interpolatePoint( vertexes[10],	x + gridSize, y + gridSize, z,
-							x + gridSize, y, z, 5, ballData);
+		interpolatePoint( vertexes[10], normals[10],	x + 1, y + 1, z,
+							x + 1, y, z, 5, cornerVertices, cornerNormals);
 
 		// 3 - 7
 		// x, (y + 1), z
 		// x, y, z
-		interpolatePoint(vertexes[11],	x, y +gridSize, z,
-							x, y, z, 5, ballData);
+		interpolatePoint(vertexes[11], normals[11],	x, y +1, z,
+							x, y, z, 5, cornerVertices, cornerNormals);
 	}
 	
 	int draw(double vertices[25000][4], double normals[25000][4]){
+		double cornerVertices[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][4];
+		double cornerNormals[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][3];
+
 		double vertexes[16][3];
+		double vertexNormals[16][3];
 		int vertexNum = 0;
 		double left, right, front, back, top, bottom;
 		double nx, ny, nz;
@@ -379,21 +393,37 @@ public:
 		double temp = min( right - left, back - front);
 		temp = min(temp, top - bottom);
 		gridSize = temp / (double)NUM_GRIDS;
-		for( double x = left - gridSize; x <= right; x += gridSize){
-			for( double y = bottom - gridSize; y <= top; y += gridSize){
-				for( double z = front - gridSize; z <= back; z += gridSize){
-					int lookUp = calcCorners( x, y, z, ballData);
 
-					calcVertexes(vertexes, x, y, z ,ballData); 
+		for( int x = 0; x <= NUM_GRIDS; x ++){
+			for( int y = 0; y <= NUM_GRIDS; y++){
+				for( int z = 0; z <= NUM_GRIDS; z++){
+					cornerVertices[x][y][z][0] = x * gridSize + left;
+					cornerVertices[x][y][z][1] = y * gridSize + bottom;
+					cornerVertices[x][y][z][2] = z * gridSize + front;
+					cornerVertices[x][y][z][3] = calculatePoint(cornerVertices[x][y][z][0], cornerVertices[x][y][z][1], cornerVertices[x][y][z][2], ballData);
+					calcNormal(cornerVertices[x][y][z][0], cornerVertices[x][y][z][1], cornerVertices[x][y][z][2], &nx, &ny, &nz, ballData);
+					cornerNormals[x][y][z][0] = nx;
+					cornerNormals[x][y][z][1] = ny;
+					cornerNormals[x][y][z][2] = nz;
+				}
+			}
+		}
+
+		for( int x = 0; x < NUM_GRIDS; x ++){
+			for( int y = 0; y < NUM_GRIDS; y++){
+				for( int z = 0; z < NUM_GRIDS; z++){
+					int lookUp = calcCorners( x, y, z, cornerVertices);
+
+					calcVertexes(vertexes, vertexNormals, x, y, z ,cornerVertices, cornerNormals); 
 					for( int i = 0; i < 16 && triTable[lookUp][i] != -1; i++){
-						vertices[vertexNum][0] = vertexes[triTable[lookUp][i]][0];
-						vertices[vertexNum][1] = vertexes[triTable[lookUp][i]][1];
-						vertices[vertexNum][2] = vertexes[triTable[lookUp][i]][2];
+						int vPos = triTable[lookUp][i];
+						vertices[vertexNum][0] = vertexes[vPos][0];
+						vertices[vertexNum][1] = vertexes[vPos][1];
+						vertices[vertexNum][2] = vertexes[vPos][2];
 						vertices[vertexNum][3] = 1;
-						calcNormal(vertices[vertexNum][0], vertices[vertexNum][1], vertices[vertexNum][2], &nx, &ny, &nz, ballData);
-						normals[vertexNum][0] = nx;
-						normals[vertexNum][1] = ny;
-						normals[vertexNum][2] = nz;
+						normals[vertexNum][0] = vertexNormals[vPos][0];
+						normals[vertexNum][1] = vertexNormals[vPos][1];
+						normals[vertexNum][2] = vertexNormals[vPos][2];
 						normals[vertexNum][3] = 1;
 
 						vertexNum++;
@@ -401,6 +431,7 @@ public:
 				}
 			}
 		}
+
 		return vertexNum;
 	}
 	
