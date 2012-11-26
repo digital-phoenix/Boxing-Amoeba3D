@@ -23,6 +23,7 @@ class Amoeba : public Sprite  {
 		double radius;
 		double scale;
 		bool normal;
+		Amoeba *player;
 
 
 		/*Arm management variables*/
@@ -172,7 +173,7 @@ class Amoeba : public Sprite  {
 		}
 
 		
-		void setRightMousePos(GLsizei x, GLsizei y)
+		/*void setRightMousePos(GLsizei x, GLsizei y)
 		{
 			if(!defendActive)
 			{
@@ -199,7 +200,7 @@ class Amoeba : public Sprite  {
 		{
 			//radAngle-=20;
 		}
-
+		*/
 		/*
 		void morph()
 		{
@@ -267,5 +268,6 @@ class Amoeba : public Sprite  {
 		void retractAttackArm();
 
 		void retractArm();
+		void setupTarget(Amoeba*);
 };
 #endif

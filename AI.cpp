@@ -69,11 +69,11 @@ void AI::update()
 
 		if(x == 0)
 		{
-			//extendAttackArm();
+			extendAttackArm();
 		}
 		else
 		{
-			//extendDefendArm();
+			extendDefendArm();
 		}
 
 	}

@@ -7,7 +7,7 @@ Amoeba::Amoeba(double px, double py,double pz, double radius, double scale, bool
 	velX = 0;
 	velY = 0;
 	velZ = 0;
-
+	this->player = NULL;
 	this->px = px;
 	this->py = py;
 	this->pz = pz;
@@ -332,7 +332,7 @@ void Amoeba::extendDefendArm()
 	if(rslope == 0)
 	{
 
-		rslope = ( ( rightMy - pz) / (rightMx - px) );
+		rslope = ( ( player->getPz() - pz) / (player->getPx() - px) );
 		double angle = atan(rslope);
 
 		defendSpacing1 = radius + radius/2;
@@ -378,7 +378,7 @@ void Amoeba::extendAttackArm()
 	if(lslope == 0)
 	{
 
-		lslope = ( ( leftMy - pz) / (leftMx - px) );
+		lslope = ( ( player->getPz() - pz) / (player->getPx() - px) );
 		double angle = atan(lslope);
 
 
@@ -446,4 +446,9 @@ void Amoeba::retractArm()
 		retractDefendArm();
 	}
 
+}
+
+void Amoeba:: setupTarget(Amoeba* target)
+{
+	player = target;
 }

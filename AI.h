@@ -58,7 +58,7 @@ class AI : Amoeba
 		double colPy;
 		double colAngle;
 */
-		Amoeba *player;
+		
 
 		public:
 

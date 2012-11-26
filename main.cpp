@@ -557,11 +557,11 @@ void init ( GLvoid )
 
 	player = new Amoeba(50, 25, -50, 25,1, true);
 	ai = new AI(100, 25, -50, 25,1, player, true);
+	player->setupTarget( (Amoeba*) ai);
 	sprites.push_back( (Sprite*) (player) );
 	sprites.push_back( (Sprite*) ai );
 
-	//sprites.push_back( (Sprite*) (  ai  ) );
-	//sprites.push_back( (Sprite*)(new Obstacle()) );
+	sprites.push_back( (Sprite*)(new Obstacle()) );
    glLineWidth(1.0);
    glPointSize(1.0);
 
@@ -1078,6 +1078,7 @@ void keyboard ( unsigned char key, int x, int y )
 				break;
 		}
 	}
+
 	switch ( key ) 
 	{ 
 		case(27):
@@ -1086,6 +1087,14 @@ void keyboard ( unsigned char key, int x, int y )
 		case(' '):
 			player->setVelocity(0,0,0);
 			break;
+
+		case('<'):
+			player->extendAttackArm();
+			break;
+		case('>'):
+			player->extendDefendArm();
+			break;
+
 		default:
 			break;
 	}
