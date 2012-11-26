@@ -11,7 +11,7 @@
 #include "Obstacle.h"
 #include "CCamera.h"
 
-#define CAMERASPEED	0.5f// The Camera Speed
+#define CAMERASPEED	0.05f// The Camera Speed
 
 
 #define ABS(x) (x < 0 ? -(x) : (x))
@@ -29,10 +29,10 @@ std::list<Sprite*> sprites;
 Amoeba *player;
 AI *ai;
 
-int screenLeft = -500;
-int screenRight = 500;
-int screenTop = 500;
-int screenBottom = -500;
+int screenLeft = -50;
+int screenRight = 50;
+int screenTop = 50;
+int screenBottom = -50;
 clock_t currentTime;
 clock_t lastTime = clock();
 int FPS = 0;
@@ -49,19 +49,19 @@ int debug = FALSE;
 GLfloat angle = 0.0;
  
 //diffuse light color variables
-GLfloat dlr = 0.5;
-GLfloat dlg = 0.5;
-GLfloat dlb = 0.5;
+GLfloat dlr = 1.0;
+GLfloat dlg = 1.0;
+GLfloat dlb = 1.0;
  
 //ambient light color variables
-GLfloat alr = 0.5;
-GLfloat alg = 0.3;
-GLfloat alb = 0.3;
+GLfloat alr = 0.2;
+GLfloat alg = 0.2;
+GLfloat alb = 0.2;
 
 //specular light color variables
-GLfloat slr = 0.4;
-GLfloat slg = 0.4;
-GLfloat slb = 0.4;
+GLfloat slr = 0.0;
+GLfloat slg = 0.0;
+GLfloat slb = 0.0;
  
 //light position variables
 GLfloat lx = 0.0;
@@ -74,11 +74,6 @@ GLfloat shinyVar = 5.0;
 
 //Light increase value
 GLfloat lightVal = 0.5;
-
-//Texture Colour Parameters
-GLfloat tr = 1.0;
-GLfloat tg = 1.0;
-GLfloat tb = 1.0;
 
 typedef struct {
    double x,y,z;
@@ -214,13 +209,13 @@ void CameraHome(int mode)
    camera.vd.y = -camera.vp.y; 
    camera.vd.z = -camera.vp.z;
 */
- // -41, 41, 50,-27, 23, 32,   0, 1, 0
-	camera.vp.x = -41;
-	camera.vp.y = 41;
-	camera.vp.z = 50;
-	camera.vd.x = 14; 
-	camera.vd.y = -18; 
-	camera.vd.z = -18;
+ //  0, 2.5f, 5,	0, 2.5f, 0,   0, 1, 0)
+	camera.vp.x = 0;
+	camera.vp.y = 2.5;
+	camera.vp.z = 5;
+	camera.vd.x = 0; 
+	camera.vd.y = 0; 
+	camera.vd.z = 2.5;
 
    camera.vu.x = 0;  
    camera.vu.y = 1; 
@@ -261,9 +256,9 @@ void Draw_Skybox(float x, float y, float z, float width, float height, float len
 
 	glEnable(GL_TEXTURE_2D);
 
-	 glColor4f(tr,tg ,tb,1.0);
 	
-	 // Draw Front side
+	 
+	// Draw Front side
 	glBindTexture(GL_TEXTURE_2D, tex[0].textureID);
 	glBegin(GL_QUADS);	
 		glTexCoord2f(1.0f, 0.0f); glVertex3f(x,		  y,		z+length);
@@ -317,8 +312,6 @@ void Draw_Skybox(float x, float y, float z, float width, float height, float len
 		glTexCoord2f(0.0f, 1.0f); glVertex3f(x+width, y,		z);
 	glEnd();
 
-	glDisable(GL_TEXTURE_2D);
-
 } 
 void Lighting()
 {
@@ -340,7 +333,7 @@ void Lighting()
    glDisable(GL_LIGHT6);
    glDisable(GL_LIGHT7);
    glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,GL_TRUE);
-   glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,GL_TRUE);
+   glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,GL_FALSE);
 
    /* Turn on the appropriate lights */
    glLightModelfv(GL_LIGHT_MODEL_AMBIENT,fullambient);
@@ -555,11 +548,9 @@ void init ( GLvoid )
    glDisable(GL_DITHER);
    glDisable(GL_CULL_FACE);
 
-	player = new Amoeba(50, 25, -50, 25,1, true);
-	ai = new AI(100, 25, -50, 25,1, player, true);
+	player = new Amoeba(50, 0, -50, 25,1, true);
+	//ai = new AI(60,60 , 50,1, player, true);
 	sprites.push_back( (Sprite*) (player) );
-	sprites.push_back( (Sprite*) ai );
-
 	//sprites.push_back( (Sprite*) (  ai  ) );
 	//sprites.push_back( (Sprite*)(new Obstacle()) );
    glLineWidth(1.0);
@@ -595,9 +586,9 @@ void MakeGeometry(void)
    glMaterialfv(GL_FRONT_AND_BACK,GL_SHININESS,shiny);
 
 	Draw_Skybox(0,0,0,1000,1000,1000);
-	glColor4f(0.0,0.0,0.0,1.0);
-	Draw_Grid(-1000,1000);
 	glColor4f(0.0,0.0,1.0,1.0);
+	Draw_Grid(-100,100);
+
 
 	glBegin(GL_TRIANGLES);
 	for( int j = 0; j < numSprites; j++){
@@ -613,7 +604,7 @@ void MakeGeometry(void)
 
 void display ( void )   
 {
-	printf("(%f, %f, %f):: (%f, %f, %f)\n", ccamera.mPos.x, ccamera.mPos.y, ccamera.mPos.z,  ccamera.mView.x, ccamera.mView.y, ccamera.mView.z); 
+	//printf("(%f, %f, %f):: (%f, %f, %f)\n", ccamera.mPos.x, ccamera.mPos.y, ccamera.mPos.z,  ccamera.mView.x, ccamera.mView.y, ccamera.mView.z); 
 	numSprites = 0;
 
 	for( std::list<Sprite*>::iterator it = sprites.begin(); it != sprites.end(); it++)
@@ -624,7 +615,7 @@ void display ( void )
 			
 			if(it != it2)
 			{
-				(*it)->collision(*it2);
+				//(*it)->collision(*it2);
 			}
 		}
 
@@ -885,11 +876,11 @@ void HandleShiny(int row)
 		switch (row) 
 		{
 			case 1: 
-				shinyVar += 100.0;
+				shinyVar += 1.0;
 			  break;
 
 		   case 2: 
-				shinyVar -= 100.0;
+				shinyVar -= 1.0;
 			  break;
 
 			case 3: 
@@ -960,42 +951,6 @@ void HandleLightMenu(int row)
 
 	   case 3: 
 			lightVal = 0.5;
-		  break;
-	}
-}
-
-void HandleTextureMenu(int row)
-{
-	switch(row)
-	{
-	  case 1: 
-			tr += 0.5;
-		  break;
-
-	   case 2: 
-			tg += 0.5;
-		  break;
-
-	   case 3: 
-			tb += 0.5;
-		  break;
-
-		  case 4: 
-			tr -= 0.5;
-		  break;
-
-	   case 5: 
-			tg -= 0.5;
-		  break;
-
-	   case 6: 
-			tb -= 0.5;
-		  break;
-
-		  case 7: 
-			tr = 1.0;
-			tg = 1.0;
-			tb = 1.0;
 		  break;
 	}
 }
@@ -1176,7 +1131,7 @@ int main ( int argc, char** argv )
 
    /* Set up the main menu */
   
-	int AmbientLightMenu, DiffuseLightMenu, SpecularLightMenu, ShinyMenu, lightPos,textureMenu, LightMenu, mainmenu;
+	int AmbientLightMenu, DiffuseLightMenu, SpecularLightMenu, ShinyMenu, lightPos, LightMenu, mainmenu;
 	
    AmbientLightMenu = glutCreateMenu(HandleAmbientLight);
    glutAddMenuEntry("Increase Ambient Red",1);
@@ -1231,18 +1186,9 @@ int main ( int argc, char** argv )
    glutAddMenuEntry("Decrement Light Value",2);
    glutAddMenuEntry("Reset Light Value",3);
 
-   textureMenu = glutCreateMenu(HandleTextureMenu);
-   glutAddMenuEntry("Increment Red",1);
-   glutAddMenuEntry("Increment Blue", 2);
-   glutAddMenuEntry("Increment Green", 3);
-   glutAddMenuEntry("Decrement Red", 4);
-   glutAddMenuEntry("Decrement Blue", 5);
-   glutAddMenuEntry("Decrement Green", 6);
-   glutAddMenuEntry("Reset Texture Colour", 7);
 
    mainmenu = glutCreateMenu(HandleMainMenu);
    glutAddSubMenu("Lighting",LightMenu);
-   glutAddSubMenu("Texture",textureMenu);
    glutAddMenuEntry("Quit",9);
    glutAttachMenu(GLUT_RIGHT_BUTTON);
 
