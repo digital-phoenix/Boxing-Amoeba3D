@@ -2,7 +2,7 @@
 #define OBSTACLE_H_
 
 #include"Sprite.h"
-#include "Metaball2DGroup.h"
+#include "Metaball3DGroup.h"
 
 class Obstacle : Sprite  {
 	
