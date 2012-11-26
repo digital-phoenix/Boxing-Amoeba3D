@@ -3,6 +3,7 @@
 #include <gl/glut.h>   
 #include <list>
 #include<time.h>
+#include <stdio.h>
 #include "Sprite.h"
 #include "Amoeba.h"
 #include "AI.h"
@@ -22,26 +23,23 @@
 #define PI 3.141592653589793238462643
 #define DTOR            0.0174532925
 #define RTOD            57.2957795
-#define CROSSPROD(p1,p2,p3) \
-   p3.x = p1.y*p2.z - p1.z*p2.y; \
-   p3.y = p1.z*p2.x - p1.x*p2.z; \
-   p3.z = p1.x*p2.y - p1.y*p2.x
+#define CROSSPROD(p1,p2,p3) p3.x = p1.y*p2.z - p1.z*p2.y; p3.y = p1.z*p2.x - p1.x*p2.z; p3.z = p1.x*p2.y - p1.y*p2.x;
 
 std::list<Sprite*> sprites;
 Amoeba *player;
 AI *ai;
 
-int screenLeft = 0;
-int screenRight = 500;
-int screenTop = 500;
-int screenBottom = 0;
+int screenLeft = -50;
+int screenRight = 50;
+int screenTop = 50;
+int screenBottom = -50;
 clock_t currentTime;
 clock_t lastTime = clock();
 int FPS = 0;
 
 /* Flags */
 int fullscreen = FALSE;
-int stereo = TRUE;
+int stereo = !TRUE;
 int showconstruct = FALSE;
 int windowdump = FALSE;
 int record = FALSE;
@@ -71,7 +69,11 @@ GLfloat ly = 0.0;
 GLfloat lz = 1.0;
 GLfloat lw = 0.0;
 
+//Shiny variable
+GLfloat shinyVar = 5.0;
 
+//Light increase value
+GLfloat lightVal = 0.5;
 
 typedef struct {
    double x,y,z;
@@ -82,7 +84,6 @@ typedef struct {
 typedef struct {
    unsigned char r,g,b,a;
 } PIXELA;
-
 typedef struct {
    XYZ vp;              /* View position           */
    XYZ vd;              /* View direction vector   */
@@ -252,8 +253,11 @@ void Draw_Skybox(float x, float y, float z, float width, float height, float len
 	y = y - height / 2;
 	z = z - length / 2;
 
+
 	glEnable(GL_TEXTURE_2D);
 
+	
+	 
 	// Draw Front side
 	glBindTexture(GL_TEXTURE_2D, tex[0].textureID);
 	glBegin(GL_QUADS);	
@@ -544,7 +548,7 @@ void init ( GLvoid )
    glDisable(GL_DITHER);
    glDisable(GL_CULL_FACE);
 
-	player = new Amoeba(-50, -25, 25,1, true);
+	player = new Amoeba(50, 0, -50, 25,1, true);
 	//ai = new AI(60,60 , 50,1, player, true);
 	sprites.push_back( (Sprite*) (player) );
 	//sprites.push_back( (Sprite*) (  ai  ) );
@@ -559,10 +563,9 @@ void init ( GLvoid )
    glEnable(GL_COLOR_MATERIAL);
    glPixelStorei(GL_UNPACK_ALIGNMENT,1);
 	
-	//glEnable(GL_TEXTURE_2D);
 	
 
-	ccamera.Position_Camera(0, 2.5f, 5,	0, 2.5f, 0,   0, 1, 0);
+	ccamera.Position_Camera(-41, 41, 50,-27, 23, 32,   0, 1, 0);
 
 }
 
@@ -577,12 +580,12 @@ int nVertices[10];
 void MakeGeometry(void)
 {
    GLfloat specular[4] = {1.0,1.0,1.0,1.0};
-   GLfloat shiny[1] = {5.0};
+   GLfloat shiny[1] = {shinyVar};
  
    glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,specular);
    glMaterialfv(GL_FRONT_AND_BACK,GL_SHININESS,shiny);
 
-	Draw_Skybox(0,0,0,100,100,100);
+	Draw_Skybox(0,0,0,1000,1000,1000);
 	glColor4f(0.0,0.0,1.0,1.0);
 	Draw_Grid(-100,100);
 
@@ -601,6 +604,7 @@ void MakeGeometry(void)
 
 void display ( void )   
 {
+	//printf("(%f, %f, %f):: (%f, %f, %f)\n", ccamera.mPos.x, ccamera.mPos.y, ccamera.mPos.z,  ccamera.mView.x, ccamera.mView.y, ccamera.mView.z); 
 	numSprites = 0;
 
 	for( std::list<Sprite*>::iterator it = sprites.begin(); it != sprites.end(); it++)
@@ -618,17 +622,17 @@ void display ( void )
 		
 		nVertices[numSprites] = (*it)->draw(amoebaVertices[numSprites], AmoebaNormals[numSprites]);
 		numSprites++;		
-		//(*it)->update();
+		(*it)->update();
 	}
 
-	/*
+	
 	FPS++;
 	currentTime = clock();
 	if( currentTime - lastTime >= CLOCKS_PER_SEC){
 		//printf("FPS = %d\n", FPS);
 		lastTime = currentTime;
 		FPS = 0;
-	}*/
+	}
 
    if (stereo) 
    {
@@ -703,16 +707,12 @@ void display ( void )
 	  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
       glLoadIdentity();
 	  gluLookAt(ccamera.mPos.x,  ccamera.mPos.y,  ccamera.mPos.z, ccamera.mView.x, ccamera.mView.y, ccamera.mView.z, ccamera.mUp.x,  ccamera.mUp.y,   ccamera.mUp.z);
-      Lighting();
       MakeGeometry();
+	  Lighting();
    }
 
 
-	
-	
 	rotateangle += rotatespeed;
-
-
 
 
 	glutSwapBuffers ( );
@@ -731,7 +731,7 @@ void reshape ( int w, int h )
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 
-	gluPerspective(45.0f,(GLfloat)w/(GLfloat)h,0.1f,100.0f);
+	gluPerspective(45.0f,(GLfloat)w/(GLfloat)h,0.1f,2000.0f);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -741,14 +741,14 @@ void mouse(int btn, int state, int x, int y)
 {
     if(btn==GLUT_LEFT_BUTTON && state==GLUT_DOWN)
     {
-		player->setLeftMousePos(x,screenTop -y);
-		player->extendAttackArm();
+		//player->setLeftMousePos(x,screenTop -y);
+		//player->extendAttackArm();
     }
 
     if(btn==GLUT_RIGHT_BUTTON && state==GLUT_DOWN)
     {
-		player->setRightMousePos(x, screenTop - y);
-		player->extendDefendArm();
+		//player->setRightMousePos(x, screenTop - y);
+		//player->extendDefendArm();
     }
 }
 
@@ -768,28 +768,33 @@ void HandleAmbientLight(int row)
 	switch (row) 
    {
 	   case 1: 
-			alr += 0.1;
+			alr += lightVal;
 		  break;
 
 	   case 2: 
-			alg += 0.1;
+			alg += lightVal;
 		  break;
 
 		case 3: 
-		alb += 0.1;
+		alb += lightVal;
 		break;
 
 		 case 4: 
-			alr -= 0.1;
+			alr -= lightVal;
 		  break;
 
 	   case 5: 
-			alg -= 0.1;
+			alg -= lightVal;
 		  break;
 
 		case 6: 
-		alb -= 0.1;
+		alb -= lightVal;
 		break;
+
+		case 7:
+			alr = 0.2;
+			alg = 0.2;
+			alb = 0.2;
    }
 
 }
@@ -799,11 +804,11 @@ void HandleDiffuseLight(int row)
 	switch (row) 
    {
 	   case 1: 
-			dlr += 0.1;
+			dlr += lightVal;
 		  break;
 
 	   case 2: 
-			dlg += 0.1;
+			dlg += lightVal;
 		  break;
 
 		case 3: 
@@ -811,53 +816,143 @@ void HandleDiffuseLight(int row)
 		break;
 
 		 case 4: 
-			dlr -= 0.1;
+			dlr -= lightVal;
 		  break;
 
 	   case 5: 
-			dlg -= 0.1;
+			dlg -= lightVal;
 		  break;
 
 		case 6: 
-		dlb -= 0.1;
+			dlb -= lightVal;
+		break;
+
+		case 7: 
+			dlr = 1.0;
+			dlg = 1.0;
+			dlb = 1.0;
 		break;
    }
 }
-
 
 void HandleSpecularLight(int row)
 {
 	switch (row) 
    {
 	   case 1: 
-			slr += 0.1;
+			slr += lightVal;
 		  break;
 
 	   case 2: 
-			slg += 0.1;
+			slg += lightVal;
 		  break;
 
 		case 3: 
-		slb += 0.1;
+		slb += lightVal;
 		break;
 
 		 case 4: 
-			slr -= 0.1;
+			slr -= lightVal;
 		  break;
 
 	   case 5: 
-			slg -= 0.1;
+			slg -= lightVal;
 		  break;
 
 		case 6: 
-			slb -= 0.1;
+			slb -= lightVal;
+		break;
+
+		case 7: 
+			slr= 0.0;
+			slb = 0.0;
+			slg = 0.0;
 		break;
    }
 }
 
+void HandleShiny(int row)
+{
+		switch (row) 
+		{
+			case 1: 
+				shinyVar += 1.0;
+			  break;
+
+		   case 2: 
+				shinyVar -= 1.0;
+			  break;
+
+			case 3: 
+				shinyVar = 5.0;
+			break;
+		}
+
+}
+
+void HandleLightPosition(int row)
+{
+	switch (row) 
+		{
+			case 1: 
+				puts("Enter your Light's X Position:");
+				scanf("%f", &lx);
+				puts("Enter your Light's Y Position:");
+				scanf("%f", &ly);
+				puts("Enter your Light's Z Position:");
+				scanf("%f", &lz);
+				printf("The Lights current position is [%f, %f, %f]", lx, ly, lz);
+			  break;
+
+		   case 2: 
+				lx++;
+			  break;
+
+			case 3: 
+				ly++;
+			break;
+
+			case 4: 
+				lz++;
+			break;
+
+			case 5: 
+				lx--;
+			break;
+
+			case 6: 
+				ly--;
+			break;
+
+			case 7: 
+				lz--;
+			break;
+
+
+			case 8: 
+				lx = 0.0;
+				ly = 0.0;
+				lz = 0.0;
+			break;
+		}
+}
+
 void HandleLightMenu(int row)
 {
+	switch(row)
+	{
+	  case 1: 
+			lightVal += 0.1;
+		  break;
 
+	   case 2: 
+			lightVal -= 0.1;
+		  break;
+
+	   case 3: 
+			lightVal = 0.5;
+		  break;
+	}
 }
 
 void keyboard ( unsigned char key, int x, int y )
@@ -939,12 +1034,12 @@ void keyboard ( unsigned char key, int x, int y )
 		}
 	}
 	switch ( key ) 
-	{
+	{ 
 		case(27):
 			exit(0);
 			break;
 		case(' '):
-			player->setVelocity(0,0);
+			player->setVelocity(0,0,0);
 			break;
 		default:
 			break;
@@ -960,11 +1055,11 @@ void arrow_keys ( int a_keys, int x, int y )
 	switch ( a_keys ) {
 		case GLUT_KEY_UP:
 			if( moves[0] )
-				player->setVely( 5.0f);
+				player->setVelz( 5.0f);
 			break;
 		case GLUT_KEY_DOWN:
 			if( moves[1] )
-				player->setVely( -5.0f);
+				player->setVelz( -5.0f);
 			break;
 		case GLUT_KEY_LEFT:
 			if( moves[2] )
@@ -1010,7 +1105,7 @@ int main ( int argc, char** argv )
 		glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH | GLUT_STEREO);
 
 	glutCreateWindow("Amoeba Boxing");
-	glutReshapeWindow(1024,1024);
+	glutReshapeWindow(500, 500);
 	if (fullscreen)
 		glutFullScreen();
 	glutDisplayFunc(display);
@@ -1036,7 +1131,7 @@ int main ( int argc, char** argv )
 
    /* Set up the main menu */
   
-	int AmbientLightMenu, DiffuseLightMenu, SpecularLightMenu, LightMenu, mainmenu;
+	int AmbientLightMenu, DiffuseLightMenu, SpecularLightMenu, ShinyMenu, lightPos, LightMenu, mainmenu;
 	
    AmbientLightMenu = glutCreateMenu(HandleAmbientLight);
    glutAddMenuEntry("Increase Ambient Red",1);
@@ -1045,6 +1140,7 @@ int main ( int argc, char** argv )
    glutAddMenuEntry("Decrease Ambient Red",4);
    glutAddMenuEntry("Decrease Ambient Green",5);
    glutAddMenuEntry("Decrease Ambient Blue",6);
+   glutAddMenuEntry("Reset Ambient",7);
 
    DiffuseLightMenu = glutCreateMenu(HandleDiffuseLight);
    glutAddMenuEntry("Increase Diffuse Red",1);
@@ -1053,6 +1149,7 @@ int main ( int argc, char** argv )
    glutAddMenuEntry("Decrease Diffuse Red",4);
    glutAddMenuEntry("Decrease Diffuse Green",5);
    glutAddMenuEntry("Decrease Diffuse Blue",6);
+   glutAddMenuEntry("Reset Diffuse",7);
 
    SpecularLightMenu = glutCreateMenu(HandleSpecularLight);
    glutAddMenuEntry("Increase Specular Red",1);
@@ -1061,11 +1158,33 @@ int main ( int argc, char** argv )
    glutAddMenuEntry("Decrease Specular Red",4);
    glutAddMenuEntry("Decrease Specular Green",5);
    glutAddMenuEntry("Decrease Specular Blue",6);
+   glutAddMenuEntry("Reset Specular",7);
+
+   ShinyMenu = glutCreateMenu(HandleShiny);
+   glutAddMenuEntry("Increase shiniest",1);
+   glutAddMenuEntry("Decrease shiniest", 2);
+   glutAddMenuEntry("Reset shiniest", 3);
+
+   lightPos = glutCreateMenu(HandleLightPosition);
+   glutAddMenuEntry("Set Light Position",1);
+   glutAddMenuEntry("Increment X Position", 2);
+   glutAddMenuEntry("Increment Y Position", 3);
+   glutAddMenuEntry("Increment Z Position", 4);
+   glutAddMenuEntry("Decrement X Position", 5);
+   glutAddMenuEntry("Decrement Y Position", 6);
+   glutAddMenuEntry("Decrement Z Position", 7);
+   glutAddMenuEntry("Reset Light Position", 8);
+
 
    LightMenu = glutCreateMenu(HandleLightMenu);
    glutAddSubMenu("Ambient",AmbientLightMenu);
    glutAddSubMenu("Diffuse",DiffuseLightMenu);
    glutAddSubMenu("Specular",SpecularLightMenu);
+   glutAddSubMenu("Shiny", ShinyMenu);
+    glutAddSubMenu("Light Position", lightPos);
+   glutAddMenuEntry("Increment Light Value",1);
+   glutAddMenuEntry("Decrement Light Value",2);
+   glutAddMenuEntry("Reset Light Value",3);
 
 
    mainmenu = glutCreateMenu(HandleMainMenu);

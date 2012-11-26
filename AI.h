@@ -1,6 +1,6 @@
 #include"Sprite.h"
 #include"Amoeba.h"
-#include"Metaball2DGroup.h"
+#include"Metaball3DGroup.h"
 #include <time.h>
 #include <string>
 
@@ -62,7 +62,7 @@ class AI : Amoeba
 
 		public:
 
-		AI(double,double, double, double, Amoeba*, bool);
+		AI(double,double,double, double, double, Amoeba*, bool);
 	
 		Amoeba *getPlayer(){
 			return player;

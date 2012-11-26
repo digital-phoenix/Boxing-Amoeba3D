@@ -2,13 +2,15 @@
 
 Amoeba::Amoeba():balls(0.0,0.0,1.0){}
 
-Amoeba::Amoeba(double px, double py, double radius, double scale, bool normal) : balls(0.0,1.0,1.0)
+Amoeba::Amoeba(double px, double py,double pz, double radius, double scale, bool normal) : balls(0.0,1.0,1.0)
 {
 	velX = 0;
 	velY = 0;
+	velZ = 0;
 
 	this->px = px;
 	this->py = py;
+	this->pz = pz;
 	this->radius = radius;
 	this->normal = normal;
 	this->scale = scale;
@@ -49,7 +51,8 @@ Amoeba::Amoeba(double px, double py, double radius, double scale, bool normal) :
 
 	isCollision = false;
 	colPx = 0;
-		colPy = 0;
+	colPy = 0;
+	colPz = 0;
 	colAngle = 0;
 
 	canMoveUp = true;
@@ -64,13 +67,15 @@ Amoeba::Amoeba(double px, double py, double radius, double scale, bool normal) :
 
 	attackFistPx = 0;
 	attackFistPy = 0;
+	attackFistPz = 0;
 	attackFistRadius = 0;
 
 	defendFistPx = 0;
 	defendFistPy = 0;
+	attackFistPz = 0;
 	defendFistRadius = 0;
 
-	balls.addMetaball(new Metaball2D(px,py,radius));//body of amoeba
+	balls.addMetaball(new Metaball3D(px,py,pz,radius));//body of amoeba
 }
 
 bool Amoeba::AmoebaCollision( Amoeba* other){
@@ -82,7 +87,7 @@ bool Amoeba::AmoebaCollision( Amoeba* other){
 	isDefend = false;
 	isWall = false;
 
-	double attackData[3];
+	double attackData[4];
 	double distance;
 	other->getAttackData(attackData);
 
@@ -90,39 +95,39 @@ bool Amoeba::AmoebaCollision( Amoeba* other){
 	if(px-radius < 0 || px+radius > screenRight)
 	{
 		if( px + radius > screenRight){
-			balls.shiftGroup(screenRight - px - radius , 0);
+			balls.shiftGroup(screenRight - px - radius ,0, 0);
 			px += screenRight - px - radius;
 		} else if(px - radius < 0)
 		{
-			balls.shiftGroup(-px +radius, 0);
+			balls.shiftGroup(-px +radius, 0, 0);
 			px += -px + radius;		
 		}
 		velX = -velX;		
 	}
 
-	if(py - radius < 0 || py + radius > screenTop)
+	if(pz - radius < 0 || pz + radius > screenTop)
 	{
 		if(py + radius > screenTop){
-			balls.shiftGroup(0, screenTop - py - radius);
-			py += screenTop - py - radius;
-		} else if(py - radius < 0)
+			balls.shiftGroup(0, 0,screenTop - pz - radius);
+			pz += screenTop - pz - radius;
+		} else if(pz - radius < 0)
 		{
-			balls.shiftGroup(0, -py +radius);
-			py += -py + radius;		
+			balls.shiftGroup(0,0, -pz +radius);
+			pz += -pz + radius;		
 		}
 
-		velY = -velY;			
+		velZ = -velZ;			
 	}	 
 				
-	if(attackData[0] != 0 && attackData[2] == scale*3)
+	if(attackData[0] != 0 && attackData[3] == scale*3)
 	{
 
-		distance = sqrt(((py - attackData[1] ) * (py - attackData[1]) + ((px - attackData[0]) * (px - attackData[0])))) ;
+		distance = sqrt(((pz - attackData[2] ) * (pz - attackData[2]) + ((px - attackData[0]) * (px - attackData[0])))) ;
 
 		colPx = attackData[0];
-		colPy = attackData[1];
+		colPz = attackData[2];
 
-		if(distance < radius + attackData[2] + 5)
+		if(distance < radius + attackData[3] + 5)
 		{
 			retractAttackArm();
 			retractDefendArm();
@@ -146,13 +151,13 @@ bool Amoeba::AmoebaCollision( Amoeba* other){
 				velX = 10;
 			}
 
-			if(py < colPy)
+			if(pz < colPz)
 			{
-				velY = -10;
+				velZ = -10;
 			}
 			else
 			{
-				velY = 10;
+				velZ = 10;
 			}
 
 			isAttack = true;
@@ -162,19 +167,19 @@ bool Amoeba::AmoebaCollision( Amoeba* other){
 	
 
 	/*Defend Collision Test*/
-	double DefendData[3]; 
+	double DefendData[4]; 
 
 	other->getDefendData(DefendData);
 			
-	if(DefendData[0] != 0 && DefendData[2] == scale*12)
+	if(DefendData[0] != 0 && DefendData[3] == scale*12)
 	{
 				
-		distance = sqrt(((py - DefendData[1] ) * (py - DefendData[1]) +  ((px - DefendData[0]) * (px - DefendData[0])))) ; 
+		distance = sqrt(((pz - DefendData[2] ) * (pz - DefendData[2]) +  ((px - DefendData[0]) * (px - DefendData[0])))) ; 
 			
 		colPx = DefendData[0];
-		colPy = DefendData[1];
+		colPz = DefendData[2];
 
-		if(distance < radius + DefendData[2] + 5)
+		if(distance < radius + DefendData[3] + 5)
 		{
 
 			if(px < colPx)
@@ -186,13 +191,13 @@ bool Amoeba::AmoebaCollision( Amoeba* other){
 				velX = 10;
 			}
 
-			if(py < colPy)
+			if(pz < colPz)
 			{
-				velY = -10;
+				velZ = -10;
 			}
 			else
 			{
-				velY = 10;
+				velZ = 10;
 			}
 			isDefend = true;
 			isCollision = true;
@@ -202,16 +207,17 @@ bool Amoeba::AmoebaCollision( Amoeba* other){
 	}
 
 	/*Body Collision Test*/
-	distance = sqrt(  ((py - other->getPy()) * (py - other->getPy()) ) +  ((px - other->getPx() ) * (px - other->getPx() ))) ; 
+	distance = sqrt(  ((pz - other->getPz()) * (pz - other->getPz()) ) +  ((px - other->getPx() ) * (px - other->getPx() ))) ; 
 
 	if(distance < radius + other->getRadius())
 	{
 		velX = 0;
 		velY = 0;
+		velZ = 0;
 		canMoveLeft = !( px > other->getPx()); 
 		canMoveRight = !( px < other->getPx()); 
-		canMoveDown = !( py > other->getPy()); 
-		canMoveUp = !( py < other->getPy()); 
+		canMoveDown = !( pz > other->getPz()); 
+		canMoveUp = !( pz < other->getPz()); 
 		isBody = true;
 		isCollision = true;
 		return true;
@@ -234,7 +240,7 @@ void Amoeba::collision(Sprite* obj)
 		ob->getRadiuses(radiuses);
 		
 		for( int i = 0; i<2; i++){
-			if( (px - positions[i].first) * (px - positions[i].first) + (py - positions[i].second) * (py - positions[i].second) <= radius * radius + radiuses[i] * radiuses[i] - 5){
+			if( (px - positions[i].first) * (px - positions[i].first) + (pz - positions[i].second) * (pz - positions[i].second) <= radius * radius + radiuses[i] * radiuses[i] - 5){
 				isCollision = true;
 				retractAttackArm();
 				retractDefendArm();
@@ -256,13 +262,13 @@ void Amoeba::collision(Sprite* obj)
 					velX = 10;
 				}
 
-				if(py < positions[i].second)
+				if(pz < positions[i].second)
 				{
-					velY = -10;
+					velZ = -10;
 				}
 				else
 				{
-					velY = 10;
+					velZ = 10;
 				}
 
 			}
@@ -277,11 +283,11 @@ void Amoeba::update()
 	if( radius <= 5){
 		radius = 50;
 		balls.setRadius(50);
-		balls.shiftGroup( 250 - px, 250 - py);
+		balls.shiftGroup( 250 - px, 0, 250 - pz);
 		px = 250;
-		py = 250;
+		pz = 250;
 		velX = 0;
-		velY = 0;
+		velZ = 0;
 	}
 
 	if( velX > 0.1){
@@ -292,16 +298,16 @@ void Amoeba::update()
 		velX = 0;
 	}
 
-	if( velY > 0.1){
-		velY -= 0.1;
-	} else if( velY < -0.1){
-		velY+= 0.1;
+	if( velZ > 0.1){
+		velZ -= 0.1;
+	} else if( velZ < -0.1){
+		velZ+= 0.1;
 	}else{
-		velY = 0;
+		velZ = 0;
 	}
 
 	px += velX;
-	py += velY;
+	pz += velZ;
 
 	if(!isCollision)
 	{
@@ -317,7 +323,7 @@ void Amoeba::update()
 	}
 			
 	retractArm();
-	balls.shiftGroup(velX, velY);
+	balls.shiftGroup(velX, velY, velZ);
 
 }
 
@@ -326,7 +332,7 @@ void Amoeba::extendDefendArm()
 	if(rslope == 0)
 	{
 
-		rslope = ( ( rightMy - py) / (rightMx - px) );
+		rslope = ( ( rightMy - pz) / (rightMx - px) );
 		double angle = atan(rslope);
 
 		defendSpacing1 = radius + radius/2;
@@ -347,15 +353,15 @@ void Amoeba::extendDefendArm()
 				defendActive = true;
 				defendArmTimer = time(NULL);
 				defendWaitTimer = time(NULL) + 7;
-				defendArm = new Metaball2DGroup(0.0, 1.0, 0.0);
+				defendArm = new Metaball3DGroup(0.0, 1.0, 0.0);
 				
-				defendArm->addMetaball(new Metaball2D(px + cos(angle)* defendSpacing1, py + sin(angle) *defendSpacing1, scale*3.0));
-				defendArm->addMetaball(new Metaball2D(px + cos(angle)* defendSpacing2, py + sin(angle) *defendSpacing2,scale*3.0));
-				defendArm->addMetaball(new Metaball2D(px + cos(angle)* defendSpacing3, py + sin(angle)*defendSpacing3,scale*12.0));
+				defendArm->addMetaball(new Metaball3D(px + cos(angle)* defendSpacing1, 0, pz + sin(angle) *defendSpacing1, scale*3.0));
+				defendArm->addMetaball(new Metaball3D(px + cos(angle)* defendSpacing2, 0, pz + sin(angle) *defendSpacing2,scale*3.0));
+				defendArm->addMetaball(new Metaball3D(px + cos(angle)* defendSpacing3, 0, pz + sin(angle)*defendSpacing3,scale*12.0));
 				balls.addSubgroup(defendArm);
 
 				defendFistPx = px + cos(angle)*defendSpacing3;
-				defendFistPy = py + sin(angle)*defendSpacing3;
+				defendFistPz = pz + sin(angle)*defendSpacing3;
 				defendFistRadius = scale*12;
 		}
 		else
@@ -372,7 +378,7 @@ void Amoeba::extendAttackArm()
 	if(lslope == 0)
 	{
 
-		lslope = ( ( leftMy - py) / (leftMx - px) );
+		lslope = ( ( leftMy - pz) / (leftMx - px) );
 		double angle = atan(lslope);
 
 
@@ -395,14 +401,14 @@ void Amoeba::extendAttackArm()
 			attackActive = true;
 			attackArmTimer = time(NULL);
 
-			attackArm = new Metaball2DGroup(1.0, 0.0, 0.0);
-			attackArm->addMetaball(new Metaball2D(px + cos(angle)*attackSpacing1, py + sin(angle)*attackSpacing1, scale*3.0));
-			attackArm->addMetaball(new Metaball2D(px + cos(angle) *attackSpacing2, py + sin(angle)*attackSpacing2,scale*3.0));
-			attackArm->addMetaball(new Metaball2D(px + cos(angle)* attackSpacing3, py + sin(angle)*attackSpacing3,scale*3.0));
+			attackArm = new Metaball3DGroup(1.0, 0.0, 0.0);
+			attackArm->addMetaball(new Metaball3D(px + cos(angle)*attackSpacing1, 0, pz + sin(angle)*attackSpacing1, scale*3.0));
+			attackArm->addMetaball(new Metaball3D(px + cos(angle) *attackSpacing2, 0, pz + sin(angle)*attackSpacing2,scale*3.0));
+			attackArm->addMetaball(new Metaball3D(px + cos(angle)* attackSpacing3, 0, pz + sin(angle)*attackSpacing3,scale*3.0));
 			balls.addSubgroup(attackArm);
 
 			attackFistPx = px + cos(angle)*attackSpacing3;
-			attackFistPy = py + sin(angle)*attackSpacing3;
+			attackFistPy = pz + sin(angle)*attackSpacing3;
 			attackFistRadius = scale*3;
 
 		}	
@@ -411,7 +417,7 @@ void Amoeba::extendAttackArm()
 
 void Amoeba::retractAttackArm(){
 	attackFistPx = 0;
-	attackFistPy = 0;
+	attackFistPz = 0;
 	balls.popSubgroup();
 	lslope = 0;
 	attackArm = NULL;
@@ -421,7 +427,7 @@ void Amoeba::retractAttackArm(){
 
 void Amoeba::retractDefendArm(){
 	defendFistPx  = 0;
-	defendFistPy = 0;
+	defendFistPz = 0;
 	balls.popSubgroup();
 	rslope = 0;
 	defendArm = NULL;

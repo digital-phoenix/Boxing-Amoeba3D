@@ -2,7 +2,7 @@
 #define AMOEBA_H_
 
 #include"Sprite.h"
-#include"Metaball2DGroup.h"
+#include"Metaball3DGroup.h"
 #include"Obstacle.h"
 #include <string>
 #include <time.h>
@@ -11,22 +11,22 @@ class Amoeba : public Sprite  {
 	protected:
 
 		/*Characteristics*/
-		Metaball2DGroup balls;
+		Metaball3DGroup balls;
 		bool needToResize;
 		bool isHit;
 		time_t isHitTimer;
 		bool morphBall;
 		clock_t morphBallTimer;
 
-		double velX, velY;
-		double px, py;
+		double velX, velY, velZ;
+		double px, py,pz;
 		double radius;
 		double scale;
 		bool normal;
 
 
 		/*Arm management variables*/
-		Metaball2DGroup *attackArm;
+		Metaball3DGroup *attackArm;
 		bool attackActive;
 		time_t attackArmTimer;
 
@@ -37,7 +37,7 @@ class Amoeba : public Sprite  {
 	    int leftMx, leftMy;
 		float lslope;
 
-		Metaball2DGroup *defendArm;
+		Metaball3DGroup *defendArm;
 
 		bool defendActive;
 		bool defendSegActive;
@@ -54,10 +54,12 @@ class Amoeba : public Sprite  {
 
 		double attackFistPx;
 		double attackFistPy;
+		double attackFistPz;
 		double attackFistRadius;
 
 		double defendFistPx;
 		double defendFistPy;
+		double defendFistPz;
 		double defendFistRadius;
 
 
@@ -70,6 +72,7 @@ class Amoeba : public Sprite  {
 
 		double colPx;
 		double colPy;
+		double colPz;
 		double colAngle;
 
 		bool canMoveUp;
@@ -80,7 +83,7 @@ class Amoeba : public Sprite  {
 
 	public:
 		Amoeba();
-		Amoeba(double,double, double, double, bool);
+		Amoeba(double,double,double, double, double, bool);
 		
 		int getIdentifier(){
 			return AMOEBA_TYPE;
@@ -110,18 +113,20 @@ class Amoeba : public Sprite  {
 			moves[3] = canMoveRight;
 		}
 
-		void getAttackData(double attack[3])
+		void getAttackData(double attack[4])
 		{
 			attack[0] = attackFistPx;
 			attack[1] = attackFistPy;
-			attack[2] = attackFistRadius;
+			attack[2] = attackFistPz;
+			attack[3] = attackFistRadius;
 		}
 
-		void getDefendData(double defend[3])
+		void getDefendData(double defend[4])
 		{
 			defend[0] =  defendFistPx;
 			defend[1] = defendFistPy;
-			defend[2] = defendFistRadius;
+			defend[2] = defendFistPz;
+			defend[3] = defendFistRadius;
 		}
 
 		void update();
@@ -137,9 +142,13 @@ class Amoeba : public Sprite  {
 			velY = y;
 		}
 
-		void setVelocity( double x, double y){
+		void setVelz( double z){
+			velZ = z;
+		}
+		void setVelocity( double x, double y, double z){
 			setVelx(x);
 			setVely(y);
+			setVelz(z);
 		}
 
 		double getRadius()
@@ -155,6 +164,11 @@ class Amoeba : public Sprite  {
 		double getPy()
 		{
 			return py;
+		}
+
+		double getPz()
+		{
+			return pz;
 		}
 
 		
@@ -186,6 +200,7 @@ class Amoeba : public Sprite  {
 			//radAngle-=20;
 		}
 
+		/*
 		void morph()
 		{
 			if(!morphBall)
@@ -242,6 +257,7 @@ class Amoeba : public Sprite  {
 			}
 
 		}
+		*/
 
 		void extendAttackArm();
 
