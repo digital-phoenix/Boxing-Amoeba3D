@@ -69,46 +69,60 @@ void AI::update()
 
 		if(x == 0)
 		{
-			extendAttackArm();
+			//extendAttackArm();
 		}
 		else
 		{
-			extendDefendArm();
+			//extendDefendArm();
 		}
 
 	}
 
-	if(!isCollision)
+	if(distance > radius + player->getRadius() + 50){
 
-			if( velX < 2)
-				velX += 0.2;
-			if( velX > -2)
-				velX += -0.2;
-			if( velZ < 2)
-				velZ += 0.2;
-			if( velZ > -2)
-				velZ += -0.2;
-	else if(isBody)
-	{
 		if(player->getPx() > px)
 		{
 			if( velX < 2)
-				velX += -0.5;
+				velX += 0.5;
 		}
 		else
 		{
 			if( velX > -2)
-				velX += 0.5;
+				velX += -0.5;
 		}
 
 		if(player->getPz() > pz)
 		{
 			if( velZ < 2)
-				velZ += -0.5;
+				velZ += 0.5;
 		}
 		else
 		{
 			if( velZ > -2)
+				velZ += -0.5;
+		}
+		
+	}else
+	{
+		if(player->getPx() > px)
+		{
+			if( velX > -2)
+				velX += -0.5;
+		}
+		else
+		{
+			if( velX < 2)
+				velX += 0.5;
+		}
+
+		if(player->getPz() > pz)
+		{
+			if( velZ > -2)
+				velZ += -0.5;
+		}
+		else
+		{
+			if( velZ < 2)
 				velZ += 0.5;
 		}
 		
