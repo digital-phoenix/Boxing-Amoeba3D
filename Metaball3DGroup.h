@@ -213,41 +213,83 @@ public:
 		}
 	}
 
+	double findEdge( double start[3], int index, double inc, std::vector<MetaballDrawData> ballData){
+
+		while( calculatePoint( start[0], start[1], start[2], ballData) >= THRESHOLD){
+			start[index] += inc;
+			inc *=2;
+		}
+		start[index] += inc;
+		return start[index];
+	}
+
 	void getBoundaries( double *left, double *right, double *bottom, double *top, double *front, double *back, std::vector<MetaballDrawData> ballData){
-		*left = ballData[0].ball.getPx() - ballData[0].ball.getRadius() * 2;
-		*right = ballData[0].ball.getPx() + ballData[0].ball.getRadius() * 2;
-		*bottom = ballData[0].ball.getPy() - ballData[0].ball.getRadius() * 2;
-		*top = ballData[0].ball.getPy() + ballData[0].ball.getRadius() * 2;
-		*front = ballData[0].ball.getPz() - ballData[0].ball.getRadius() * 2;
-		*back = ballData[0].ball.getPz() + ballData[0].ball.getRadius() * 2;
-		
+		*left = ballData[0].ball.getPx() - ballData[0].ball.getRadius();
+		*right = ballData[0].ball.getPx() + ballData[0].ball.getRadius();
+		*bottom = ballData[0].ball.getPy() - ballData[0].ball.getRadius();
+		*top = ballData[0].ball.getPy() + ballData[0].ball.getRadius();
+		*front = ballData[0].ball.getPz() + ballData[0].ball.getRadius();
+		*back = ballData[0].ball.getPz() - ballData[0].ball.getRadius();
 		double temp;
+		double maxRadius = ballData[0].ball.getRadius();
+
 		for( unsigned int i = 0; i < ballData.size(); i++){
-			temp = ballData[0].ball.getPx() - ballData[0].ball.getRadius() * 2;
+			temp = ballData[i].ball.getPx() - ballData[i].ball.getRadius();
 			if( *left > temp){
 				*left = temp;
 			}
-			temp= ballData[0].ball.getPx() + ballData[0].ball.getRadius() * 2;
+			temp= ballData[i].ball.getPx() + ballData[i].ball.getRadius();
 			if( *right < temp){
 				*right = temp;
 			}
-			temp = ballData[0].ball.getPy() - ballData[0].ball.getRadius() * 2;
+			temp = ballData[i].ball.getPy() - ballData[i].ball.getRadius();
 			if( *bottom > temp){
 				*bottom = temp;
 			}
-			temp = ballData[0].ball.getPy() + ballData[0].ball.getRadius() * 2;
+			temp = ballData[i].ball.getPy() + ballData[i].ball.getRadius();
 			if( *top < temp){
 				*top = temp;
 			}
-			temp = ballData[0].ball.getPz() - ballData[0].ball.getRadius() * 2;
-			if( *front < temp){
+			temp = ballData[i].ball.getPz() - ballData[i].ball.getRadius();
+			if( *front > temp){
 				*front = temp;
 			}
-			temp = ballData[0].ball.getPz() + ballData[0].ball.getRadius() * 2;
-			if( *back > temp){
+			temp = ballData[i].ball.getPz() + ballData[i].ball.getRadius();
+			if( *back < temp){
 				*back = temp;
 			}
+			
+			if( maxRadius < ballData[i].ball.getRadius()){
+				maxRadius = ballData[i].ball.getRadius();
+			}
 		}
+		double start[3] = {right - left, top - bottom, front - back};
+		double oldVals[3] = {start[0],start[1],start[2]};
+
+		start[0] = *right;
+		*right = findEdge( start, 0, maxRadius, ballData);
+		start[0] = oldVals[0];
+
+		start[0] = *left;
+		*left = findEdge( start, 0, -maxRadius, ballData);
+		start[0] = oldVals[0];
+
+		start[1] = *top;
+		*top = findEdge( start, 1, maxRadius, ballData);
+		start[1] = oldVals[1];
+
+		start[1] = *bottom;
+		*bottom = findEdge( start, 1, -maxRadius, ballData);
+		start[1] = oldVals[1];
+
+		start[2] = *front;
+		*front = findEdge( start, 2, -maxRadius, ballData);
+		start[2] = oldVals[2];
+
+		start[2] = *back;
+		*back = findEdge( start, 2, maxRadius, ballData);
+		start[2] = oldVals[2];
+
 	}
 
 int calcCorners( int x, int y, int z, double cornerVertices[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][4]){
@@ -381,60 +423,61 @@ interpolatePoint(vertexes[11], normals[11],	x, y +1, z,
 x, y, z, 5, cornerVertices, cornerNormals);
 }
 
-	int draw(double vertices[25000][4], double normals[25000][4]){
-double cornerVertices[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][4];
-double cornerNormals[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][3];
+int draw(double vertices[48000][4], double normals[48000][4]){
+	double cornerVertices[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][4];
+	double cornerNormals[NUM_GRIDS + 1][NUM_GRIDS + 1][NUM_GRIDS + 1][3];
 
-double vertexes[16][3];
-double vertexNormals[16][3];
-int vertexNum = 0;
-double left, right, front, back, top, bottom;
-double nx, ny, nz;
-std::vector<MetaballDrawData> ballData = getDrawData();
-getBoundaries(&left, &right, &bottom, &top, &front, &back, ballData);
-double temp = min( right - left, back - front);
-temp = min(temp, top - bottom);
-gridSize = temp / (double)NUM_GRIDS;
+	double vertexes[16][3];
+	double vertexNormals[16][3];
+	int vertexNum = 0;
+	double left, right, front, back, top, bottom;
+	double nx, ny, nz;
+	std::vector<MetaballDrawData> ballData = getDrawData();
+	int ballDataSize = ballData.size();
+	getBoundaries(&left, &right, &bottom, &top, &front, &back, ballData);
+	double temp = max( right - left, back - front);
+	temp = max(temp, top - bottom);
+	gridSize = temp / (double)NUM_GRIDS;
 
-for( int x = 0; x <= NUM_GRIDS; x ++){
-for( int y = 0; y <= NUM_GRIDS; y++){
-for( int z = 0; z <= NUM_GRIDS; z++){
-cornerVertices[x][y][z][0] = x * gridSize + left;
-cornerVertices[x][y][z][1] = y * gridSize + bottom;
-cornerVertices[x][y][z][2] = z * gridSize + front;
-cornerVertices[x][y][z][3] = calculatePoint(cornerVertices[x][y][z][0], cornerVertices[x][y][z][1], cornerVertices[x][y][z][2], ballData);
-calcNormal(cornerVertices[x][y][z][0], cornerVertices[x][y][z][1], cornerVertices[x][y][z][2], &nx, &ny, &nz, ballData);
-cornerNormals[x][y][z][0] = nx;
-cornerNormals[x][y][z][1] = ny;
-cornerNormals[x][y][z][2] = nz;
-}
-}
-}
+	for( int x = 0; x <= NUM_GRIDS; x ++){
+		for( int y = 0; y <= NUM_GRIDS; y++){
+			for( int z = 0; z <= NUM_GRIDS; z++){
+				cornerVertices[x][y][z][0] = x * gridSize + left;
+				cornerVertices[x][y][z][1] = y * gridSize + bottom;
+				cornerVertices[x][y][z][2] = z * gridSize + front;
+				cornerVertices[x][y][z][3] = calculatePoint(cornerVertices[x][y][z][0], cornerVertices[x][y][z][1], cornerVertices[x][y][z][2], ballData);
+				calcNormal(cornerVertices[x][y][z][0], cornerVertices[x][y][z][1], cornerVertices[x][y][z][2], &nx, &ny, &nz, ballData);
+				cornerNormals[x][y][z][0] = nx;
+				cornerNormals[x][y][z][1] = ny;
+				cornerNormals[x][y][z][2] = nz;
+			}
+		}
+	}
 
-for( int x = 0; x < NUM_GRIDS; x ++){
-for( int y = 0; y < NUM_GRIDS; y++){
-for( int z = 0; z < NUM_GRIDS; z++){
-int lookUp = calcCorners( x, y, z, cornerVertices);
+	for( int x = 0; x < NUM_GRIDS; x ++){
+		for( int y = 0; y < NUM_GRIDS; y++){
+			for( int z = 0; z < NUM_GRIDS; z++){
+				int lookUp = calcCorners( x, y, z, cornerVertices);
 
-calcVertexes(vertexes, vertexNormals, x, y, z ,cornerVertices, cornerNormals);
-for( int i = 0; i < 16 && triTable[lookUp][i] != -1; i++){
-int vPos = triTable[lookUp][i];
-vertices[vertexNum][0] = vertexes[vPos][0];
-vertices[vertexNum][1] = vertexes[vPos][1];
-vertices[vertexNum][2] = vertexes[vPos][2];
-vertices[vertexNum][3] = 1;
-normals[vertexNum][0] = vertexNormals[vPos][0];
-normals[vertexNum][1] = vertexNormals[vPos][1];
-normals[vertexNum][2] = vertexNormals[vPos][2];
-normals[vertexNum][3] = 1;
+				calcVertexes(vertexes, vertexNormals, x, y, z ,cornerVertices, cornerNormals);
+				for( int i = 0; i < 16 && triTable[lookUp][i] != -1; i++){
+					int vPos = triTable[lookUp][i];
+					vertices[vertexNum][0] = vertexes[vPos][0];
+					vertices[vertexNum][1] = vertexes[vPos][1];
+					vertices[vertexNum][2] = vertexes[vPos][2];
+					vertices[vertexNum][3] = 1;
+					normals[vertexNum][0] = vertexNormals[vPos][0];
+					normals[vertexNum][1] = vertexNormals[vPos][1];
+					normals[vertexNum][2] = vertexNormals[vPos][2];
+					normals[vertexNum][3] = 1;
 
-vertexNum++;
-}
-}
-}
-}
+					vertexNum++;
+				}
+			}
+		}
+	}
 
-return vertexNum;
+	return vertexNum;
 }
 
 

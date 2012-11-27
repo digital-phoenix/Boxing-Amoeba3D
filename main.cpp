@@ -559,9 +559,9 @@ void init ( GLvoid )
 	ai = new AI(100, 25, -50, 25,1, player, true);
 	player->setupTarget( (Amoeba*) ai);
 	sprites.push_back( (Sprite*) (player) );
-	sprites.push_back( (Sprite*) ai );
+	//sprites.push_back( (Sprite*) ai );
 
-	sprites.push_back( (Sprite*)(new Obstacle()) );
+	//sprites.push_back( (Sprite*)(new Obstacle()) );
    glLineWidth(1.0);
    glPointSize(1.0);
 
@@ -574,7 +574,7 @@ void init ( GLvoid )
 	
 	
 
-	ccamera.Position_Camera(-41, 41, 50,-27, 23, 32,   0, 1, 0);
+	ccamera.Position_Camera(-41, 100, 50,-41, 80, 0,   0, 1, 0);
 
 }
 
