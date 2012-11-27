@@ -2,13 +2,13 @@
 #define OBSTACLE_H_
 
 #include"Sprite.h"
-#include "Metaball2DGroup.h"
+#include "Metaball3DGroup.h"
 
 class Obstacle : Sprite  {
 	
 	private:
-		Metaball2DGroup ballGroups[2];
-		Metaball2DGroup ballContainer;
+		Metaball3DGroup ballGroups[2];
+		Metaball3DGroup ballContainer;
 		std::pair<double, double> velocities[2];
 		std::pair<double, double> positions[2];
 		double radiuses[2];
@@ -20,8 +20,8 @@ class Obstacle : Sprite  {
 
 			for( int i=0; i<2; i++){
 				radiuses[i]  = 20.0;
-				ballGroups[i] = Metaball2DGroup(0.0,0.6,0.0);
-				ballGroups[i].addMetaball( new Metaball2D(positions[i].first, positions[i].second, radiuses[i]));
+				ballGroups[i] = Metaball3DGroup(0.0,0.6,0.0);
+				ballGroups[i].addMetaball( new Metaball3D(positions[i].first,0, positions[i].second, radiuses[i]));
 				ballContainer.addSubgroup( ballGroups + i);
 			}
 
@@ -41,11 +41,11 @@ class Obstacle : Sprite  {
 				if(positions[i].first-radiuses[i] < 0 || positions[i].first+radiuses[i] > screenRight)
 				{
 					if( positions[i].first + radiuses[i] > screenRight){
-						ballGroups[i].shiftGroup(screenRight - positions[i].first - radiuses[i] , 0);
+						ballGroups[i].shiftGroup(screenRight - positions[i].first - radiuses[i] ,0, 0);
 						positions[i].first += screenRight - positions[i].first - radiuses[i];
 					} else if(positions[i].first - radiuses[i] < 0)
 					{
-						ballGroups[i].shiftGroup(-positions[i].first +radiuses[i], 0);
+						ballGroups[i].shiftGroup(-positions[i].first +radiuses[i], 0, 0);
 						positions[i].first += -positions[i].first + radiuses[i];		
 					}
 					velocities[i].first = -velocities[i].first;		
@@ -54,11 +54,11 @@ class Obstacle : Sprite  {
 				if(positions[i].second - radiuses[i] < 0 || positions[i].second + radiuses[i] > screenTop)
 				{
 					if(positions[i].second + radiuses[i] > screenTop){
-						ballGroups[i].shiftGroup(0, screenTop - positions[i].second - radiuses[i]);
+						ballGroups[i].shiftGroup(0, 0, screenTop - positions[i].second - radiuses[i]);
 						positions[i].second += screenTop - positions[i].second - radiuses[i];
 					} else if(positions[i].second - radiuses[i] < 0)
 					{
-						ballGroups[i].shiftGroup(0, -positions[i].second +radiuses[i]);
+						ballGroups[i].shiftGroup(0, 0, -positions[i].second +radiuses[i]);
 						positions[i].second += -positions[i].second + radiuses[i];		
 					}
 
@@ -82,7 +82,7 @@ class Obstacle : Sprite  {
 				positions[i].first += velocities[i].first;
 				positions[i].second += velocities[i].second;
 			
-				ballGroups[i].shiftGroup( velocities[i].first, velocities[i].second);
+				ballGroups[i].shiftGroup( velocities[i].first, 0,velocities[i].second);
 			}
 		}
 

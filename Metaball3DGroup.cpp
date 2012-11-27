@@ -1,6 +1,6 @@
-#include "Metaball2DGroup.h"
+#include "Metaball3DGroup.h"
 
-		const int Metaball2DGroup::triTable[256][16] = 
+		const int Metaball3DGroup::triTable[256][16] = 
 		{{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 		{0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 		{0, 1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},

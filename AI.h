@@ -3,7 +3,7 @@
 
 #include"Sprite.h"
 #include"Amoeba.h"
-#include"Metaball2DGroup.h"
+#include"Metaball3DGroup.h"
 #include <time.h>
 #include <string>
 
@@ -61,11 +61,11 @@ class AI : Amoeba
 		double colPy;
 		double colAngle;
 */
-		Amoeba *player;
+		
 
 		public:
 
-		AI(double,double, double, double, Amoeba*, bool);
+		AI(double,double,double, double, double, Amoeba*, bool);
 	
 		Amoeba *getPlayer(){
 			return player;
